@@ -1,0 +1,14 @@
+[package]
+name = "colamd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[features]
+nprint = []
+debug = []
+debug1 = ["debug"]
+debug2 = ["debug1"]
+debug3 = ["debug2"]
+debug4 = ["debug3"]
