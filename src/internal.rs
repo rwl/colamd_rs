@@ -17,7 +17,7 @@ pub(crate) const deadPrincipal: i32 = -1;
 pub(crate) const deadNonPrincipal: i32 = -2;
 
 // Row and column status update and checking.
-pub(crate) fn row_is_dead(row: &[Row], r: i32) -> bool {
+pub(crate) fn row_is_dead(row: &[Row], r: usize) -> bool {
     row_is_marked_dead(row[r].mark())
 }
 
@@ -25,31 +25,31 @@ pub(crate) fn row_is_marked_dead(row_mark: i32) -> bool {
     row_mark < alive
 }
 
-pub(crate) fn row_is_alive(row: &[Row], r: i32) -> bool {
+pub(crate) fn row_is_alive(row: &[Row], r: usize) -> bool {
     row[r].mark() >= alive
 }
 
-pub(crate) fn col_is_dead(col: &[Col], c: i32) -> bool {
+pub(crate) fn col_is_dead(col: &[Col], c: usize) -> bool {
     col[c].start < alive
 }
 
-pub(crate) fn col_is_alive(col: &[Col], c: i32) -> bool {
+pub(crate) fn col_is_alive(col: &[Col], c: usize) -> bool {
     col[c].start >= alive
 }
 
-pub(crate) fn col_is_dead_principal(col: &[Col], c: i32) -> bool {
+pub(crate) fn col_is_dead_principal(col: &mut [Col], c: usize) -> bool {
     col[c].start == deadPrincipal
 }
 
-pub(crate) fn kill_row(row: &[Row], r: i32) {
-    row[r].setMark(dead)
+pub(crate) fn kill_row(row: &mut [Row], r: usize) {
+    row[r].set_mark(dead)
 }
 
-pub(crate) fn kill_principal_col(col: &[Col], c: i32) {
+pub(crate) fn kill_principal_col(col: &mut [Col], c: usize) {
     col[c].start = deadPrincipal
 }
 
-pub(crate) fn kill_non_principal_col(col: &[Col], c: i32) {
+pub(crate) fn kill_non_principal_col(col: &mut [Col], c: usize) {
     col[c].start = deadNonPrincipal
 }
 

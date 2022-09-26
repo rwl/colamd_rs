@@ -10,7 +10,7 @@ pub fn colamd(
     n_row: i32,
     n_col: i32,
     Alen: i32,
-    A: &[i32],
+    A: &mut [i32],
     p: &mut [i32],
     knobs: Option<[f64; KNOBS]>,
     stats: &mut [i32; STATS],
@@ -123,7 +123,7 @@ pub fn colamd(
 
     // Construct the row and column data structures.
 
-    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, A, p, stats) {
+    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, &mut A, p, stats) {
         // Input matrix is invalid.
         debug0!("colamd: Matrix invalid");
         return false;
@@ -133,8 +133,8 @@ pub fn colamd(
     init_scoring(
         n_row,
         n_col,
-        &rows,
-        &cols,
+        &mut rows,
+        &mut cols,
         A,
         p,
         knobs,
@@ -148,8 +148,8 @@ pub fn colamd(
         n_row,
         n_col,
         Alen,
-        &rows,
-        &cols,
+        &mut rows,
+        &mut cols,
         A,
         p,
         n_col2,
@@ -159,7 +159,7 @@ pub fn colamd(
     );
 
     // Order the non-principal columns.
-    order_children(n_col, &cols, p);
+    order_children(n_col, &mut cols, p);
 
     // Return statistics in stats.
     stats[DENSE_ROW] = n_row - n_row2;

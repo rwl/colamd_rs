@@ -21,9 +21,9 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
     // 	return
     // }
 
-    let i1 = &stats[INFO1];
-    let i2 = &stats[INFO2];
-    let i3 = &stats[INFO3];
+    let i1 = stats[INFO1].clone();
+    let i2 = stats[INFO2].clone();
+    let i3 = stats[INFO3].clone();
 
     if stats[STATUS] >= 0 {
         println!("{} OK.  ", s)
@@ -31,7 +31,7 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
         println!("{} ERROR.  ", s)
     }
 
-    match &stats[STATUS] {
+    match stats[STATUS].clone() {
         OK_BUT_JUMBLED => {
             println!("Matrix has unsorted or duplicate row indices.");
             println!(
@@ -110,8 +110,8 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
             println!(
                 "Row index (row {}) out of bounds ({} to {}) in column {}.",
                 index(i2),
-                index(&0),
-                index(&i3 - 1),
+                index(0),
+                index(i3 - 1),
                 index(i1)
             );
         }
@@ -122,6 +122,6 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
 }
 
 // Matrixes are 0-based and indices are reported as such.
-fn index(i: &i32) -> i32 {
-    *i
+fn index(i: i32) -> i32 {
+    i
 }
