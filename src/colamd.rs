@@ -2,7 +2,7 @@
 
 use crate::codes::*;
 use crate::col::Col;
-use crate::colamd2::{init_rows_cols, init_scoring};
+use crate::colamd2::{find_ordering, init_rows_cols, init_scoring, order_children};
 use crate::internal::*;
 use crate::row::Row;
 use crate::stats::*;
@@ -146,22 +146,22 @@ pub fn colamd(
     );
 
     // Order the supercolumns.
-    // let ngarbage = find_ordering(
-    //     n_row,
-    //     n_col,
-    //     Alen,
-    //     rows,
-    //     cols,
-    //     A,
-    //     p,
-    //     n_col2,
-    //     max_deg,
-    //     2 * nnz,
-    //     aggressive,
-    // );
+    let ngarbage = find_ordering(
+        n_row,
+        n_col,
+        Alen,
+        &rows,
+        &cols,
+        A,
+        p,
+        n_col2,
+        max_deg,
+        2 * nnz,
+        aggressive,
+    );
 
     // Order the non-principal columns.
-    // order_children(n_col, cols, p);
+    order_children(n_col, &cols, p);
 
     // Return statistics in stats.
     stats[DENSE_ROW] = n_row - n_row2;
@@ -173,15 +173,46 @@ pub fn colamd(
     true
 }
 
-fn default_knobs() -> [f64; KNOBS] {
-    let mut knobs = [0.0; KNOBS];
-    for i in 0..KNOBS {
-        knobs[i] = 0.0
+/// Recommended returns the suggested size for `Alen`. This value has
+/// been determined to provide good balance between the number of
+/// garbage collections and the memory requirements for `colamd`. If any
+/// argument is negative, or if integer overflow occurs, a 0 is returned as
+/// an error condition. `2*nnz` space is required for the row and column
+/// indices of the matrix. `COLAMD_C(n_col) + COLAMD_R(n_row)` space is
+/// required for the `Col` and `Row` arrays, respectively, which are internal to
+/// `colamd` (roughly `6*n_col + 4*n_row`). An additional `n_col` space is the
+/// minimal amount of "elbow room", and `nnz/5` more space is recommended for
+/// run time efficiency.
+///
+/// `Alen` is approximately `2.2*nnz + 7*n_col + 4*n_row + 10`.
+///
+/// This function is not needed when using `symamd`.
+///
+/// `nnz` must be the same value as `p[n_col]` in the call to `colamd` - otherwise
+/// you will get a wrong value of the recommended memory to use.
+/// Returns the recommended value of `Alen` or 0 if any input argument is
+/// negative. The use of this routine is optional. Not needed for `symamd`,
+/// which dynamically allocates its own memory.
+pub fn recommended(nnz: i32, n_row: i32, n_col: i32) -> i32 {
+    let mut ok = true;
+    if nnz < 0 || n_row < 0 || n_col < 0 {
+        return 0;
     }
-    knobs[DENSE_ROW] = 10.0;
-    knobs[DENSE_COL] = 10.0;
-    knobs[AGGRESSIVE] = 1.0; // Default to aggressive absorption.
-    knobs
+    let mut s = tmult(nnz, 2, &mut ok); // 2*nnz
+
+    //c = COLAMD_C(n_col, ok) ;      // size of column structures
+    //r = COLAMD_R(n_row, ok) ;      // size of row structures
+    //s = t_add(s, c, ok) ;
+    //s = t_add(s, r, ok) ;
+
+    s = tadd(s, n_col, &mut ok); // elbow room
+    s = tadd(s, nnz / 5, &mut ok); // elbow room
+    ok = true; //(s < Int_MAX) ? 1 : 0;
+    if ok {
+        s
+    } else {
+        0
+    }
 }
 
 // Add two values of type int, and check for integer overflow.

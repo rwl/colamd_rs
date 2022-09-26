@@ -41,8 +41,11 @@ mod codes;
 mod col;
 mod colamd;
 mod colamd2;
+mod debug;
 mod internal;
+mod report;
 mod row;
 mod stats;
+mod symamd;
 
 pub use crate::colamd::colamd;

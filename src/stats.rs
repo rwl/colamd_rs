@@ -25,3 +25,14 @@ pub(crate) const STATUS: usize = 3;
 pub(crate) const INFO1: usize = 4;
 pub(crate) const INFO2: usize = 5;
 pub(crate) const INFO3: usize = 6;
+
+pub(crate) fn default_knobs() -> [f64; KNOBS] {
+    let mut knobs = [0.0; KNOBS];
+    for i in 0..KNOBS {
+        knobs[i] = 0.0
+    }
+    knobs[DENSE_ROW] = 10.0;
+    knobs[DENSE_COL] = 10.0;
+    knobs[AGGRESSIVE] = 1.0; // Default to aggressive absorption.
+    knobs
+}
