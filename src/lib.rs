@@ -1,5 +1,5 @@
-/// Copyright (c) 1998-2016, Timothy A. Davis
-/// Copyright (c) 2022, Richard W. Lincoln
+/// Copyright (C) 1998-2016 Stefan I. Larimore and Timothy A. Davis.
+/// Copyright (C) 2011-2022 Richard W. Lincoln.
 /// All Rights Reserved.
 ///
 /// Approximate minimum degree column ordering algorithms.

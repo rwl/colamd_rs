@@ -1,5 +1,3 @@
-// Copyright (c) 1998-2007, Timothy A. Davis, All Rights Reserved.
-
 use crate::codes::*;
 use crate::col::Col;
 use crate::colamd2::{find_ordering, init_rows_cols, init_scoring, order_children};
