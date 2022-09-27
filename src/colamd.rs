@@ -21,11 +21,11 @@ pub fn colamd(
     let mut need: i32; // minimum required length of A
     let mut rows: Vec<Row>; // pointer into A of Row[0..n_row] array
     let mut cols: Vec<Col>; // pointer into A of Col[0..n_col] array
-    let mut n_col2: i32; // number of non-dense, non-empty columns
-    let mut n_row2: i32; // number of non-dense, non-empty rows
+    let mut n_col2: i32 = 0; // number of non-dense, non-empty columns
+    let mut n_row2: i32 = 0; // number of non-dense, non-empty rows
     let mut ngarbage: i32; // number of garbage collections performed
-    let mut max_deg: i32; // maximum row degree
-                          // let mut default_knobs = vec![0.0; KNOBS]; // default knobs array
+    let mut max_deg: i32 = 0; // maximum row degree
+                              // let mut default_knobs = vec![0.0; KNOBS]; // default knobs array
     let mut aggressive: i32; // do aggressive absorption
     let mut ok = false;
 
@@ -123,7 +123,7 @@ pub fn colamd(
 
     // Construct the row and column data structures.
 
-    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, &mut A, p, stats) {
+    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, A, p, stats) {
         // Input matrix is invalid.
         debug0!("colamd: Matrix invalid");
         return false;

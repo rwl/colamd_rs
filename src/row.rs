@@ -36,7 +36,7 @@ impl RowShared1 {
 
 impl Row {
     // Number of principal & non-principal columns in row.
-    pub(crate) fn degree(self) -> i32 {
+    pub(crate) fn degree(&self) -> i32 {
         self.shared1
     }
 
@@ -45,7 +45,7 @@ impl Row {
     }
 
     // Used as a row pointer in initRowsCols().
-    pub(crate) fn p(self) -> i32 {
+    pub(crate) fn p(&self) -> i32 {
         self.shared1
     }
 
@@ -54,7 +54,7 @@ impl Row {
     }
 
     // For computing set differences and marking dead rows.
-    pub(crate) fn mark(self) -> i32 {
+    pub(crate) fn mark(&self) -> i32 {
         self.shared2
     }
 
@@ -63,7 +63,7 @@ impl Row {
     }
 
     // First column in row (used in garbage collection).
-    pub(crate) fn first_column(self) -> i32 {
+    pub(crate) fn first_column(&self) -> i32 {
         self.shared2
     }
 

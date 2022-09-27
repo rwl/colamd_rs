@@ -49,3 +49,4 @@ mod stats;
 mod symamd;
 
 pub use crate::colamd::colamd;
+pub use crate::stats::*;

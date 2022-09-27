@@ -4,7 +4,7 @@
 pub(crate) const KNOBS: usize = 20;
 
 /// Number of output statistics. Only stats[0..6] are currently used.
-pub(crate) const STATS: usize = 20;
+pub const STATS: usize = 20;
 
 /// Dense row knob and output statistic.
 pub(crate) const DENSE_ROW: usize = 0;

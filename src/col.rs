@@ -45,7 +45,7 @@ impl ColShared1 {
 impl Col {
     // Number of original columns represented by this
     // col, if the column is alive.
-    pub(crate) fn thickness(self) -> i32 {
+    pub(crate) fn thickness(&self) -> i32 {
         self.shared1
     }
 
@@ -54,7 +54,7 @@ impl Col {
     }
 
     // Parent in parent tree super-column structure, if the column is dead.
-    pub(crate) fn parent(self) -> i32 {
+    pub(crate) fn parent(&self) -> i32 {
         self.shared1
     }
 
@@ -63,7 +63,7 @@ impl Col {
     }
 
     // The score used to maintain heap, if col is alive.
-    pub(crate) fn score(self) -> i32 {
+    pub(crate) fn score(&self) -> i32 {
         self.shared2
     }
 
@@ -72,7 +72,7 @@ impl Col {
     }
 
     // Pivot ordering of this column, if col is dead.
-    pub(crate) fn order(self) -> i32 {
+    pub(crate) fn order(&self) -> i32 {
         self.shared2
     }
 
@@ -81,7 +81,7 @@ impl Col {
     }
 
     // Head of a hash bucket, if col is at the head of a degree list.
-    pub(crate) fn headhash(self) -> i32 {
+    pub(crate) fn headhash(&self) -> i32 {
         self.shared3
     }
 
@@ -90,7 +90,7 @@ impl Col {
     }
 
     // Hash value, if col is not in a degree list.
-    pub(crate) fn hash(self) -> i32 {
+    pub(crate) fn hash(&self) -> i32 {
         self.shared3
     }
 
@@ -100,7 +100,7 @@ impl Col {
 
     // Previous column in degree list, if col is in a
     // degree list (but not at the head of a degree list).
-    pub(crate) fn prev(self) -> i32 {
+    pub(crate) fn prev(&self) -> i32 {
         self.shared3
     }
 
@@ -109,7 +109,7 @@ impl Col {
     }
 
     // Next column, if col is in a degree list.
-    pub(crate) fn degree_next(self) -> i32 {
+    pub(crate) fn degree_next(&self) -> i32 {
         self.shared4
     }
 
@@ -118,7 +118,7 @@ impl Col {
     }
 
     // Next column, if col is in a hash list.
-    pub(crate) fn hash_next(self) -> i32 {
+    pub(crate) fn hash_next(&self) -> i32 {
         self.shared4
     }
 
