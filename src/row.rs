@@ -9,30 +9,30 @@ pub(crate) struct Row {
     shared2: i32,
 }
 
-pub(crate) enum RowShared1 {
-    Degree(i32),
-    P(i32),
-}
-
-impl RowShared1 {
-    // Number of principal & non-principal columns in row.
-    pub(crate) fn degree(self) -> i32 {
-        match self {
-            RowShared1::Degree(val) => val,
-            RowShared1::P(val) => panic!("called `RowShared1::degree()` on a `P` value: {}", val),
-        }
-    }
-
-    // Used as a row pointer in `init_rows_cols()`.
-    pub(crate) fn p(self) -> i32 {
-        match self {
-            RowShared1::P(val) => val,
-            RowShared1::Degree(val) => {
-                panic!("called `RowShared1::p()` on a `Degree` value: {}", val)
-            }
-        }
-    }
-}
+// pub(crate) enum RowShared1 {
+//     Degree(i32),
+//     P(i32),
+// }
+//
+// impl RowShared1 {
+//     // Number of principal & non-principal columns in row.
+//     pub(crate) fn degree(self) -> i32 {
+//         match self {
+//             RowShared1::Degree(val) => val,
+//             RowShared1::P(val) => panic!("called `RowShared1::degree()` on a `P` value: {}", val),
+//         }
+//     }
+//
+//     // Used as a row pointer in `init_rows_cols()`.
+//     pub(crate) fn p(self) -> i32 {
+//         match self {
+//             RowShared1::P(val) => val,
+//             RowShared1::Degree(val) => {
+//                 panic!("called `RowShared1::p()` on a `Degree` value: {}", val)
+//             }
+//         }
+//     }
+// }
 
 impl Row {
     // Number of principal & non-principal columns in row.

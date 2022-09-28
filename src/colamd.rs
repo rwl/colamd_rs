@@ -9,25 +9,25 @@ use std::cmp;
 pub fn colamd(
     n_row: i32,
     n_col: i32,
-    Alen: i32,
-    A: &mut [i32],
+    a_len: i32,
+    a_mat: &mut [i32],
     p: &mut [i32],
     knobs: Option<[f64; KNOBS]>,
     stats: &mut [i32; STATS],
 ) -> bool {
-    let mut nnz: i32; // nonzeros in A
-    let mut Row_size: i32; // size of Row[], in integers
-    let mut Col_size: i32; // size of Col[], in integers
-    let mut need: i32; // minimum required length of A
-    let mut rows: Vec<Row>; // pointer into A of Row[0..n_row] array
-    let mut cols: Vec<Col>; // pointer into A of Col[0..n_col] array
-    let mut n_col2: i32 = 0; // number of non-dense, non-empty columns
-    let mut n_row2: i32 = 0; // number of non-dense, non-empty rows
-    let mut ngarbage: i32; // number of garbage collections performed
-    let mut max_deg: i32 = 0; // maximum row degree
-                              // let mut default_knobs = vec![0.0; KNOBS]; // default knobs array
-    let mut aggressive: i32; // do aggressive absorption
-    let mut ok = false;
+    // let mut nnz: i32; // nonzeros in A
+    // let mut Row_size: i32; // size of Row[], in integers
+    // let mut Col_size: i32; // size of Col[], in integers
+    // let mut need: i32; // minimum required length of A
+    // let mut rows: Vec<Row>; // pointer into A of Row[0..n_row] array
+    // let mut cols: Vec<Col>; // pointer into A of Col[0..n_col] array
+    // let mut n_col2: i32 = 0; // number of non-dense, non-empty columns
+    // let mut n_row2: i32 = 0; // number of non-dense, non-empty rows
+    // let mut ngarbage: i32; // number of garbage collections performed
+    // let mut max_deg: i32 = 0; // maximum row degree
+    //                           // let mut default_knobs = vec![0.0; KNOBS]; // default knobs array
+    // let mut aggressive: i32; // do aggressive absorption
+    // let mut ok = false;
 
     // Check the input arguments.
     // #[cfg(feature = "debug")]
@@ -98,44 +98,47 @@ pub fn colamd(
     let aggressive = knobs[AGGRESSIVE] != 0.0;
 
     // Allocate the Row and Col arrays from array A.
-    ok = true;
-    Col_size = tc(n_col, &mut ok); // Size of Col array of structs
-    Row_size = tr(n_row, &mut ok); // Size of Row array of structs
+    let mut ok = true;
+    let col_size = tc(n_col, &mut ok); // Size of Col array of structs
+    let row_size = tr(n_row, &mut ok); // Size of Row array of structs
 
     // need = 2*nnz + n_col + Col_size + Row_size
-    need = tmult(nnz, 2, &mut ok);
-    need = tadd(need, n_col, &mut ok);
+    let need = tmult(nnz, 2, &mut ok);
+    let need = tadd(need, n_col, &mut ok);
     // need = t_add (need, Col_size, ok)
     // need = t_add (need, Row_size, ok)
 
-    if !ok || need > Alen || need > i32::MAX {
+    if !ok || need > a_len || need > i32::MAX {
         // Not enough space in array A to perform the ordering.
         stats[STATUS] = ERROR_A_TOO_SMALL;
         stats[INFO1] = need;
-        stats[INFO2] = Alen;
-        debug0!("colamd: Need Alen >= {}, given only Alen = {}", need, Alen);
+        stats[INFO2] = a_len;
+        debug0!("colamd: Need Alen >= {}, given only Alen = {}", need, a_len);
         return false;
     }
 
     // Alen -= Col_size + Row_size
-    let mut cols = vec![Col::default(); Col_size as usize]; //A[Alen]
-    let mut rows = vec![Row::default(); Row_size as usize]; //A[Alen + Col_size]
+    let mut cols = vec![Col::default(); col_size as usize]; //A[Alen]
+    let mut rows = vec![Row::default(); row_size as usize]; //A[Alen + Col_size]
 
     // Construct the row and column data structures.
 
-    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, A, p, stats) {
+    if !init_rows_cols(n_row, n_col, &mut rows, &mut cols, a_mat, p, stats) {
         // Input matrix is invalid.
         debug0!("colamd: Matrix invalid");
         return false;
     }
 
     // Initialize scores, kill dense rows/columns.
+    let mut n_col2: i32 = 0; // number of non-dense, non-empty columns
+    let mut n_row2: i32 = 0; // number of non-dense, non-empty rows
+    let mut max_deg: i32 = 0; // maximum row degree
     init_scoring(
         n_row,
         n_col,
         &mut rows,
         &mut cols,
-        A,
+        a_mat,
         p,
         knobs,
         &mut n_row2,
@@ -147,10 +150,10 @@ pub fn colamd(
     let ngarbage = find_ordering(
         n_row,
         n_col,
-        Alen,
+        a_len,
         &mut rows,
         &mut cols,
-        A,
+        a_mat,
         p,
         n_col2,
         max_deg,
@@ -230,7 +233,7 @@ fn tadd(a: i32, b: i32, ok: &mut bool) -> i32 {
 // Compute a*k where k is a small integer, and check for integer overflow.
 fn tmult(a: i32, k: i32, ok: &mut bool) -> i32 {
     let mut s = 0;
-    for i in 0..k {
+    for _i in 0..k {
         s = tadd(s, a, ok);
     }
     s

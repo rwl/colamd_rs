@@ -87,25 +87,25 @@ use crate::stats::*;
 ///       "allocate" routine passed into symamd).
 pub fn symamd(
     n: i32,
-    A: &[i32],
+    a_ind: &[i32],
     p: &[i32],
     perm: &mut [i32],
     knobs: Option<[f64; KNOBS]>,
     stats: &mut [i32; STATS],
 ) -> bool {
-    let count: Vec<i32>; // Length of each column of M, and col pointer.
-    let mark: Vec<i32>; // Mark array for finding duplicate entries.
-                        // let M: Vec<i32>; // Row indices of matrix M.
-    let Mlen: i32; // Length of M.
-    let nrow: i32; // Number of rows in M.
-    let nnz: i32; // Number of entries in A.
-                  // let i: i32; // Row index of A.
-                  // let j: i32; // Column index of A.
-                  // let k: i32; // Row index of M.
-    let mnz: i32; // Number of nonzeros in M.
-    let pp: i32; // Index into a column of A.
-                 // let lastRow: i32; // Last row seen in the current column.
-                 // let length: i32; // Number of nonzeros in a column.
+    // let count: Vec<i32>; // Length of each column of M, and col pointer.
+    // let mark: Vec<i32>; // Mark array for finding duplicate entries.
+    // let M: Vec<i32>; // Row indices of matrix M.
+    // let Mlen: i32; // Length of M.
+    // let nrow: i32; // Number of rows in M.
+    // let nnz: i32; // Number of entries in A.
+    // let i: i32; // Row index of A.
+    // let j: i32; // Column index of A.
+    // let k: i32; // Row index of M.
+    // let mnz: i32; // Number of nonzeros in M.
+    // let pp: i32; // Index into a column of A.
+    // let lastRow: i32; // Last row seen in the current column.
+    // let length: i32; // Number of nonzeros in a column.
 
     let mut cknobs = [0.0; KNOBS]; // Knobs for colamd.
                                    // let defaultKnobs = [0.0; KNOBS]; // Default knobs for colamd.
@@ -125,19 +125,19 @@ pub fn symamd(
         return false;
     }
 
-    nnz = p[n as usize];
+    let nnz = p[n as usize];
     if nnz < 0 {
         // nnz must be >= 0
         stats[STATUS] = ERROR_NNZ_NEGATIVE;
         stats[INFO1] = nnz;
-        debug0!("symamd: number of entries negative %d", nnz);
+        debug0!("symamd: number of entries negative {}", nnz);
         return false;
     }
 
     if p[0] != 0 {
         stats[STATUS] = ERROR_P0_NONZERO;
         stats[INFO1] = p[0];
-        debug0!("symamd: p[0] not zero %d", p[0]);
+        debug0!("symamd: p[0] not zero {}", p[0]);
         return false;
     }
 
@@ -151,8 +151,8 @@ pub fn symamd(
 
     // Allocate count and mark.
 
-    let mut count = vec![0; (n + 1) as usize];
-    let mut mark = vec![0; (n + 1) as usize];
+    let mut count = vec![0; (n + 1) as usize]; // Length of each column of M, and col pointer.
+    let mut mark = vec![0; (n + 1) as usize]; // Mark array for finding duplicate entries.
 
     // Compute column counts of M, check if A is valid.
 
@@ -163,7 +163,7 @@ pub fn symamd(
     }
 
     for j in 0..n {
-        let mut lastRow = -1; // Last row seen in the current column.
+        let mut last_row = -1; // Last row seen in the current column.
 
         let length = p[(j + 1) as usize] - p[j as usize]; // Number of nonzeros in a column.
         if length < 0 {
@@ -178,7 +178,7 @@ pub fn symamd(
         }
 
         for pp in p[j as usize]..p[(j + 1) as usize] {
-            let i = A[pp as usize];
+            let i = a_ind[pp as usize];
             if i < 0 || i >= n {
                 // Row index i, in column j, is out of bounds.
                 stats[STATUS] = ERROR_ROW_INDEX_OUT_OF_BOUNDS;
@@ -191,7 +191,7 @@ pub fn symamd(
                 return false;
             }
 
-            if i <= lastRow || mark[i as usize] == j {
+            if i <= last_row || mark[i as usize] == j {
                 // Row index is unsorted or repeated (or both), thus col
                 // is jumbled. This is a notice, not an error condition.
                 stats[STATUS] = OK_BUT_JUMBLED;
@@ -210,7 +210,7 @@ pub fn symamd(
             // Mark the row as having been seen in this column.
             mark[i as usize] = j;
 
-            lastRow = i;
+            last_row = i;
         }
     }
 
@@ -227,39 +227,35 @@ pub fn symamd(
 
     // Construct M.
 
-    mnz = perm[n as usize];
-    nrow = mnz / 2;
-    Mlen = recommended(mnz, nrow, n);
-    let mut M = vec![0; Mlen as usize];
+    let mnz = perm[n as usize];
+    let nrow = mnz / 2;
+    let m_len = recommended(mnz, nrow, n);
+    let mut m_mat = vec![0; m_len as usize];
     debug0!(
         "symamd: M is {}-by-{} with {} entries, Mlen = {}",
         nrow,
         n,
         mnz,
-        Mlen
+        m_len
     );
 
     let mut k = 0;
 
     if stats[STATUS] == OK {
         // Matrix is OK.
-        for j in 0..n {
-            #[cfg(feature = "debug")]
-            {
-                assert!(p[j + 1] - p[j] >= 0);
-            }
-            for pp in p[j as usize]..p[(j + 1) as usize] {
-                let i = A[pp as usize];
-                #[cfg(feature = "debug")]
-                {
-                    assert!(i >= 0 && i < n);
-                }
+        for j in 0..n as usize {
+            assert_debug!(p[j + 1] - p[j] >= 0);
+
+            for pp in p[j]..p[j + 1] {
+                let i = a_ind[pp as usize] as usize;
+                assert_debug!(/*i >= 0 &&*/ i < n as usize);
+
                 if i > j {
                     // Row k of M contains column indices i and j.
-                    M[count[i as usize] as usize] = k;
-                    count[i as usize] += 1;
-                    M[count[j as usize] as usize] = k;
-                    count[j as usize] += 1;
+                    m_mat[count[i] as usize] = k;
+                    count[i] += 1;
+                    m_mat[count[j] as usize] = k;
+                    count[j] += 1;
                     k += 1;
                 }
             }
@@ -271,25 +267,21 @@ pub fn symamd(
         for i in 0..n {
             mark[i as usize] = -1;
         }
-        for j in 0..n {
-            #[cfg(feature = "debug")]
-            {
-                assert!(p[j + 1] - p[j] >= 0);
-            }
-            for pp in p[j as usize]..p[(j + 1) as usize] {
-                let i = A[pp as usize];
-                #[cfg(feature = "debug")]
-                {
-                    assert!(i >= 0 && i < n);
-                }
-                if i > j && mark[i as usize] != j {
+        for j in 0..n as usize {
+            assert_debug!(p[j + 1] - p[j] >= 0);
+
+            for pp in p[j]..p[j + 1] {
+                let i = a_ind[pp as usize] as usize;
+                assert_debug!(/*i >= 0 &&*/ i < n as usize);
+
+                if i > j && mark[i] as usize != j {
                     // Row k of M contains column indices i and j.
-                    M[count[i as usize] as usize] = k;
-                    count[i as usize] += 1;
-                    M[count[j as usize] as usize] = k;
-                    count[j as usize] += 1;
+                    m_mat[count[i] as usize] = k;
+                    count[i] += 1;
+                    m_mat[count[j] as usize] = k;
+                    count[j] += 1;
                     k += 1;
-                    mark[i as usize] = j;
+                    mark[i] = j as i32;
                 }
             }
         }
@@ -298,10 +290,7 @@ pub fn symamd(
     // Count and mark no longer needed.
     // count = nil
     // mark = nil
-    #[cfg(feature = "debug")]
-    {
-        assert!(k == nrow);
-    }
+    assert_debug!(k == nrow);
 
     // Adjust the knobs for M.
 
@@ -317,7 +306,7 @@ pub fn symamd(
 
     // Order the columns of M.
 
-    colamd(nrow, n, Mlen, &mut M, perm, Some(cknobs), stats);
+    colamd(nrow, n, m_len, &mut m_mat, perm, Some(cknobs), stats);
 
     // Note that the output permutation is now in perm.
 

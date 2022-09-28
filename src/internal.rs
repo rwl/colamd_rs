@@ -6,15 +6,15 @@ pub(crate) fn ones_complement(r: i32) -> i32 {
     return -r - 1;
 }
 
-pub(crate) const empty: i32 = -1;
+pub(crate) const EMPTY: i32 = -1;
 
 // Row and column status.
-pub(crate) const alive: i32 = 0;
-pub(crate) const dead: i32 = -1;
+pub(crate) const ALIVE: i32 = 0;
+pub(crate) const DEAD: i32 = -1;
 
 // Column status.
-pub(crate) const deadPrincipal: i32 = -1;
-pub(crate) const deadNonPrincipal: i32 = -2;
+pub(crate) const DEAD_PRINCIPAL: i32 = -1;
+pub(crate) const DEAD_NON_PRINCIPAL: i32 = -2;
 
 // Row and column status update and checking.
 pub(crate) fn row_is_dead(row: &[Row], r: usize) -> bool {
@@ -22,38 +22,50 @@ pub(crate) fn row_is_dead(row: &[Row], r: usize) -> bool {
 }
 
 pub(crate) fn row_is_marked_dead(row_mark: i32) -> bool {
-    row_mark < alive
+    row_mark < ALIVE
 }
 
 pub(crate) fn row_is_alive(row: &[Row], r: usize) -> bool {
-    row[r].mark() >= alive
+    row[r].mark() >= ALIVE
 }
 
 pub(crate) fn col_is_dead(col: &[Col], c: usize) -> bool {
-    col[c].start < alive
+    col[c].start < ALIVE
 }
 
 pub(crate) fn col_is_alive(col: &[Col], c: usize) -> bool {
-    col[c].start >= alive
+    col[c].start >= ALIVE
 }
 
 pub(crate) fn col_is_dead_principal(col: &mut [Col], c: usize) -> bool {
-    col[c].start == deadPrincipal
+    col[c].start == DEAD_PRINCIPAL
 }
 
 pub(crate) fn kill_row(row: &mut [Row], r: usize) {
-    row[r].set_mark(dead)
+    row[r].set_mark(DEAD)
 }
 
 pub(crate) fn kill_principal_col(col: &mut [Col], c: usize) {
-    col[c].start = deadPrincipal
+    col[c].start = DEAD_PRINCIPAL
 }
 
 pub(crate) fn kill_non_principal_col(col: &mut [Col], c: usize) {
-    col[c].start = deadNonPrincipal
+    col[c].start = DEAD_NON_PRINCIPAL
 }
 
 // Feature: debug
+
+#[cfg(feature = "debug")]
+macro_rules! assert_debug {
+    ($cond:expr) => {
+        assert!($cond)
+    };
+}
+
+#[cfg(not(feature = "debug"))]
+macro_rules! assert_debug {
+    ($cond:expr) => {};
+}
 
 #[cfg(feature = "debug")]
 macro_rules! debug0 {
@@ -130,4 +142,4 @@ macro_rules! debug4 {
 
 use crate::col::Col;
 use crate::row::Row;
-pub(crate) use {debug0, debug1, debug2, debug3, debug4};
+pub(crate) use {assert_debug, debug0, debug1, debug2, debug3, debug4};

@@ -77,12 +77,12 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
                 method, stats[DEFRAG_COUNT]
             );
         }
-        ERROR_A_NOT_PRESENT => {
-            println!("Array A (row indices of matrix) not present.");
-        }
-        ERROR_P_NOT_PRESENT => {
-            println!("Array p (column pointers for matrix) not present.");
-        }
+        // ERROR_A_NOT_PRESENT => {
+        //     println!("Array A (row indices of matrix) not present.");
+        // }
+        // ERROR_P_NOT_PRESENT => {
+        //     println!("Array p (column pointers for matrix) not present.");
+        // }
         ERROR_NROW_NEGATIVE => {
             println!("Invalid number of rows ({}).", i1);
         }
@@ -118,6 +118,7 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
         ERROR_OUT_OF_MEMORY => {
             println!("Out of memory.");
         }
+        _ => {}
     }
 }
 

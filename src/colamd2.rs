@@ -1,5 +1,7 @@
 use crate::codes::*;
 use crate::col::Col;
+#[cfg(feature = "debug")]
+use crate::debug::*;
 use crate::internal::*;
 use crate::row::Row;
 use crate::stats::*;
@@ -15,7 +17,7 @@ pub(crate) fn init_rows_cols(
     ncol: i32,
     rows: &mut [Row],
     cols: &mut [Col],
-    A: &mut [i32],
+    a_ind: &mut [i32],
     p: &mut [i32],
     stats: &mut [i32; STATS],
 ) -> bool {
@@ -35,8 +37,8 @@ pub(crate) fn init_rows_cols(
 
         cols[col].set_thickness(1);
         cols[col].set_score(0);
-        cols[col].set_prev(empty);
-        cols[col].set_degree_next(empty);
+        cols[col].set_prev(EMPTY);
+        cols[col].set_degree_next(EMPTY);
     }
     // p[0..n_col] no longer needed, used as "head" in subsequent routines.
 
@@ -51,13 +53,13 @@ pub(crate) fn init_rows_cols(
     }
 
     for col in 0..ncol {
-        let mut lastRow = -1;
+        let mut last_row = -1;
 
         let mut cp = p[col as usize] as usize;
         let cpend = p[(col + 1) as usize] as usize;
 
         while cp < cpend {
-            let row = A[cp];
+            let row = a_ind[cp];
             cp += 1;
 
             // Make sure row indices within range.
@@ -70,7 +72,7 @@ pub(crate) fn init_rows_cols(
                 return false;
             }
 
-            if row <= lastRow || rows[row as usize].mark() == col {
+            if row <= last_row || rows[row as usize].mark() == col {
                 // Row index are unsorted or repeated (or both), thus col
                 // is jumbled. This is a notice, not an error condition.
                 stats[STATUS] = OK_BUT_JUMBLED;
@@ -90,7 +92,7 @@ pub(crate) fn init_rows_cols(
             // Mark the row as having been seen in this column.
             rows[row as usize].set_mark(col);
 
-            lastRow = row;
+            last_row = row;
         }
     }
 
@@ -116,11 +118,11 @@ pub(crate) fn init_rows_cols(
             let cpend = p[(col + 1) as usize];
 
             while cp < cpend {
-                let row = A[cp as usize] as usize;
+                let row = a_ind[cp as usize] as usize;
                 cp += 1;
 
                 if rows[row].mark() != col {
-                    A[rows[row].p() as usize] = col;
+                    a_ind[rows[row].p() as usize] = col;
                     rows[row].set_p(rows[row].p() + 1);
                     rows[row].set_mark(col);
                 }
@@ -132,8 +134,8 @@ pub(crate) fn init_rows_cols(
             let mut cp = p[col as usize] as usize;
             let cpend = p[(col + 1) as usize] as usize;
             while cp < cpend {
-                A[rows[A[cp] as usize].p() as usize] = col;
-                rows[A[cp] as usize].set_p(rows[A[cp] as usize].p() + 1);
+                a_ind[rows[a_ind[cp] as usize].p() as usize] = col;
+                rows[a_ind[cp] as usize].set_p(rows[a_ind[cp] as usize].p() + 1);
                 cp += 1;
             }
         }
@@ -154,19 +156,19 @@ pub(crate) fn init_rows_cols(
             debug0!("colamd: reconstructing column form, matrix jumbled");
 
             // Make sure column lengths are correct.
-            for col in 0..ncol {
+            for col in 0..ncol as usize {
                 p[col] = cols[col].length;
             }
-            for row in 0..nrow {
-                let rp = rows[row].start;
-                let rpend = rp + rows[row].length;
+            for row in 0..nrow as usize {
+                let mut rp = rows[row].start as usize;
+                let rpend = rp + rows[row].length as usize;
                 while rp < rpend {
-                    p[A[rp]] -= 1;
+                    p[a_ind[rp] as usize] -= 1;
                     rp += 1;
                 }
             }
-            for col in 0..ncol {
-                assert!(p[col] == 0)
+            for col in 0..ncol as usize {
+                assert_debug!(p[col] == 0)
             }
             // Now p is all zero (different than when debugging is turned off).
         }
@@ -193,8 +195,8 @@ pub(crate) fn init_rows_cols(
             let mut rp = rows[row as usize].start as usize;
             let rpend = rp + rows[row as usize].length as usize;
             while rp < rpend {
-                A[p[A[rp] as usize] as usize] = row;
-                p[A[rp] as usize] += 1;
+                a_ind[p[a_ind[rp] as usize] as usize] = row;
+                p[a_ind[rp] as usize] += 1;
                 rp += 1;
             }
         }
@@ -212,48 +214,54 @@ pub(crate) fn init_scoring(
     ncol: i32,
     rows: &mut [Row],
     cols: &mut [Col],
-    A: &mut [i32],
+    a_ind: &mut [i32],
     head: &mut [i32],
     knobs: [f64; KNOBS],
     pnrow2: &mut i32,
     pncol2: &mut i32,
-    pmaxDeg: &mut i32,
+    pmax_deg: &mut i32,
 ) {
-    let c: i32; // A column index.
-    let r: i32; // A row index.
-                // let row: usize; // A row index.
-                // let cp: usize; // A column pointer.
-                // let cpend: usize; // A pointer to the end of a column.
-                // let newcp: usize; // New column pointer.
-                // let colLength: i32; // Length of pruned column.
-                // let score: i32; // Current column score.
-    let denseRowCount: i32; // Remove rows with more entries than this.
-    let denseColCount: i32; // Remove cols with more entries than this.
-                            // let minScore: i32; // Smallest column score.
-                            // let maxDeg: i32; // Maximum row degree.
-                            // let nextCol: i32; // Used to add to degree list.
+    // let c: i32; // A column index.
+    // let r: i32; // A row index.
+    // let row: usize; // A row index.
+    // let cp: usize; // A column pointer.
+    // let cpend: usize; // A pointer to the end of a column.
+    // let newcp: usize; // New column pointer.
+    // let colLength: i32; // Length of pruned column.
+    // let score: i32; // Current column score.
+    // let denseRowCount: i32; // Remove rows with more entries than this.
+    // let denseColCount: i32; // Remove cols with more entries than this.
+    // let minScore: i32; // Smallest column score.
+    // let max_deg: i32; // Maximum row degree.
+    // let nextCol: i32; // Used to add to degree list.
 
-    #[cfg(feature = "debug")]
-    let mut debugCount = 0; // Debug only.
+    // #[cfg(feature = "debug")]
+    // let mut debug_count = 0; // Debug only.
 
     // Extract knobs.
 
+    // Remove rows with more entries than this.
     // Note: if knobs contains a NaN, this is undefined:
-    let denseRowCount = if knobs[DENSE_ROW] < 0.0 {
+    let dense_row_count = if knobs[DENSE_ROW] < 0.0 {
         // Only remove completely dense rows.
         ncol - 1
     } else {
         dense_degree(knobs[DENSE_ROW], ncol)
     };
-    let denseColCount = if knobs[DENSE_COL] < 0.0 {
+    // Remove cols with more entries than this.
+    let dense_col_count = if knobs[DENSE_COL] < 0.0 {
         // Only remove completely dense columns.
         nrow - 1
     } else {
         dense_degree(knobs[DENSE_COL], i32::min(nrow, ncol))
     };
 
-    debug1!("colamd: densecount: {} {}", denseRowCount, denseColCount);
-    let mut maxDeg = 0; // Maximum row degree.
+    debug1!(
+        "colamd: densecount: {} {}",
+        dense_row_count,
+        dense_col_count
+    );
+    let mut max_deg = 0; // Maximum row degree.
     let mut ncol2 = ncol; // Number of non-dense, non-empty columns.
     let mut nrow2 = nrow; // Number of non-dense, non-empty rows.
 
@@ -283,7 +291,7 @@ pub(crate) fn init_scoring(
             continue;
         }
         let deg = cols[c].length; // Degree of column.
-        if deg > denseColCount {
+        if deg > dense_col_count {
             // This is a dense column, kill and order it last.
             ncol2 -= 1;
             cols[c].set_order(ncol2);
@@ -291,7 +299,7 @@ pub(crate) fn init_scoring(
             let mut cp = cols[c].start as usize; // Column pointer.
             let cpend = cp + cols[c].length as usize; // Pointer to the end of the column.
             while cp < cpend {
-                rows[A[cp] as usize].set_degree(rows[A[cp] as usize].degree() - 1);
+                rows[a_ind[cp] as usize].set_degree(rows[a_ind[cp] as usize].degree() - 1);
                 cp += 1;
             }
             kill_principal_col(cols, c);
@@ -302,14 +310,14 @@ pub(crate) fn init_scoring(
     // Kill dense and empty rows.
     for r in 0..nrow as usize {
         let deg = rows[r].degree(); // Degree of row.
-        debug_assert!(deg >= 0 && deg <= ncol);
-        if deg > denseRowCount || deg == 0 {
+        assert_debug!(deg >= 0 && deg <= ncol);
+        if deg > dense_row_count || deg == 0 {
             // Kill a dense or empty row.
             kill_row(rows, r);
             nrow2 -= 1;
         } else {
             // keep track of max degree of remaining rows
-            maxDeg = i32::max(maxDeg, deg);
+            max_deg = i32::max(max_deg, deg);
         }
     }
     debug1!("colamd: Dense and null rows killed: {}", nrow - nrow2);
@@ -335,14 +343,14 @@ pub(crate) fn init_scoring(
         let cpend = cp + cols[c].length as usize;
         while cp < cpend {
             // Get a row.
-            let row = A[cp] as usize; // row index
+            let row = a_ind[cp] as usize; // row index
             cp += 1;
             // Skip if dead.
             if row_is_dead(rows, row) {
                 continue;
             }
             // Compact the column.
-            A[newcp] = row as i32;
+            a_ind[newcp] = row as i32;
             newcp += 1;
             // Add row's external degree.
             score += rows[row].degree() - 1;
@@ -350,8 +358,8 @@ pub(crate) fn init_scoring(
             score = i32::min(score, ncol);
         }
         // Determine pruned column length.
-        let colLength = (newcp as i32 - cols[c].start); // Length of pruned column.
-        if colLength == 0 {
+        let col_length = newcp as i32 - cols[c].start; // Length of pruned column.
+        if col_length == 0 {
             // A newly-made null column (all rows in this col are "dense"
             // and have already been killed).
             debug2!("Newly null killed: {}", c);
@@ -360,9 +368,9 @@ pub(crate) fn init_scoring(
             kill_principal_col(cols, c);
         } else {
             // Set column length and set score.
-            debug_assert!(score >= 0);
-            debug_assert!(score <= ncol);
-            cols[c].length = colLength;
+            assert_debug!(score >= 0);
+            assert_debug!(score <= ncol);
+            cols[c].length = col_length;
             cols[c].set_score(score);
         }
     }
@@ -377,18 +385,18 @@ pub(crate) fn init_scoring(
     // least one live column.
 
     #[cfg(feature = "debug")]
-    debug_structures(nrow, ncol, rows, cols, A, ncol2);
+    debug_structures(nrow, ncol, rows, cols, a_ind, ncol2);
 
     // Initialize degree lists.
 
     #[cfg(feature = "debug")]
-    let mut debugCount = 0;
+    let mut debug_count = 0;
 
     // Clear the hash buckets.
     for c in 0..=ncol as usize {
-        head[c] = empty;
+        head[c] = EMPTY;
     }
-    let mut minScore = ncol; // Smallest column score.
+    let mut min_score = ncol; // Smallest column score.
 
     // Place in reverse order, so low column indices are at the front
     // of the lists. This is to encourage natural tie-breaking.
@@ -400,7 +408,7 @@ pub(crate) fn init_scoring(
                 "place {} score {} minscore {} ncol {}",
                 c,
                 cols[c].score(),
-                minScore,
+                min_score,
                 ncol
             );
 
@@ -408,51 +416,50 @@ pub(crate) fn init_scoring(
 
             let score = cols[c].score();
 
-            debug_assert!(minScore >= 0);
-            debug_assert!(minScore <= ncol);
-            debug_assert!(score >= 0);
-            debug_assert!(score <= ncol);
-            debug_assert!(head[score as usize] >= empty);
+            assert_debug!(min_score >= 0);
+            assert_debug!(min_score <= ncol);
+            assert_debug!(score >= 0);
+            assert_debug!(score <= ncol);
+            assert_debug!(head[score as usize] >= EMPTY);
 
             // Now add this column to dList at proper score location.
-            let nextCol = head[score as usize]; // Used to add to degree list.
-            cols[c].set_prev(empty);
-            cols[c].set_degree_next(nextCol);
+            let next_col = head[score as usize]; // Used to add to degree list.
+            cols[c].set_prev(EMPTY);
+            cols[c].set_degree_next(next_col);
 
             // if there already was a column with the same score, set its
             // previous pointer to this new column.
-            if nextCol != empty {
-                cols[nextCol as usize].set_prev(c as i32);
+            if next_col != EMPTY {
+                cols[next_col as usize].set_prev(c as i32);
             }
             head[score as usize] = c as i32;
 
             // See if this score is less than current min.
-            minScore = i32::min(minScore, score);
+            min_score = i32::min(min_score, score);
 
             #[cfg(feature = "debug")]
             {
-                debugCount += 1;
+                debug_count += 1;
             }
         }
     }
 
     debug1!(
         "colamd: Live cols {} out of {}, non-princ: {}",
-        debugCount,
+        debug_count,
         ncol,
-        ncol - debugCount
+        ncol - debug_count
     );
+
+    assert_debug!(debug_count == ncol2);
     #[cfg(feature = "debug")]
-    {
-        assert!(debugCount == ncol2);
-        debugDegLists(nrow, ncol, rows, cols, head, minScore, ncol2, maxDeg);
-    }
+    debug_deg_lists(nrow, ncol, rows, cols, head, min_score, ncol2, max_deg);
 
     // Return number of remaining columns, and max row degree.
 
     *pncol2 = ncol2;
     *pnrow2 = nrow2;
-    *pmaxDeg = maxDeg;
+    *pmax_deg = max_deg;
 }
 
 // Order the principal columns of the supercolumn form of the matrix
@@ -467,58 +474,56 @@ pub(crate) fn init_scoring(
 pub(crate) fn find_ordering(
     nrow: i32,
     ncol: i32,
-    Alen: i32,
+    a_len: i32,
     rows: &mut [Row],
     cols: &mut [Col],
-    A: &mut [i32],
+    a_ind: &mut [i32],
     head: &mut [i32],
     n_col2: i32,
     mut maxdeg: i32,
     mut pfree: i32,
     aggressive: bool,
 ) -> i32 {
-    let k: i32; // Current pivot ordering step.
-                // let pivotCol: i32; // Current pivot column.
-                // let cp: usize; // A column pointer.
-                // let rp: usize; // A row pointer.
-                // let pivotRow: i32; // Current pivot row.
-                // let newcp: i32; // Modified column pointer.
-                // let newrp: i32; // Modified row pointer.
-                // let pivotRowStart: i32; // Pointer to start of pivot row.
-                // let pivotRowDegree: i32; // Number of columns in pivot row.
-                // let pivotRowLength: i32; // Number of supercolumns in pivot row.
-                // let pivotColScore: i32; // Score of pivot column.
-                // let neededMemory: i32; // Free space needed for pivot row.
-                // let cpend: usize; // Pointer to the end of a column.
-                // let rpend: usize; // Pointer to the end of a row.
-                // let row: usize; // A row index.
-                // let col: usize; // A column index.
-                // let maxScore: i32; // Maximum possible score.
-                // let curScore: i32; // Score of current column.
-                // let hash: usize; // Hash value for supernode detection.
-                // let headColumn: i32; // Head of hash bucket.
-                // let firstCol: i32; // First column in hash bucket.
-                // let tagMark: i32; // Marker value for mark array.
-                // let rowMark: i32; // Row [row].shared2.mark
-                // let setDifference: i32; /// Set difference size of row with pivot row.
-                // let minScore: i32; // Smallest column score.
-                // let colThickness: i32; // "thickness" (no. of columns in a supercol)
-    let maxMark: i32; // Maximum value of tag_mark.
-                      // let pivotColThickness: i32; // Number of columns represented by pivot col.
-                      // let prevCol: i32; // Used by Dlist operations.
-                      // let nextCol: i32; // Used by Dlist operations.
-                      // let ngarbage: i32; // Number of garbage collections performed.
+    // let k: i32; // Current pivot ordering step.
+    // let pivotCol: i32; // Current pivot column.
+    // let cp: usize; // A column pointer.
+    // let rp: usize; // A row pointer.
+    // let pivotRow: i32; // Current pivot row.
+    // let newcp: i32; // Modified column pointer.
+    // let newrp: i32; // Modified row pointer.
+    // let pivotRowStart: i32; // Pointer to start of pivot row.
+    // let pivotRowDegree: i32; // Number of columns in pivot row.
+    // let pivotRowLength: i32; // Number of supercolumns in pivot row.
+    // let pivotColScore: i32; // Score of pivot column.
+    // let neededMemory: i32; // Free space needed for pivot row.
+    // let cpend: usize; // Pointer to the end of a column.
+    // let rpend: usize; // Pointer to the end of a row.
+    // let row: usize; // A row index.
+    // let col: usize; // A column index.
+    // let maxScore: i32; // Maximum possible score.
+    // let curScore: i32; // Score of current column.
+    // let hash: usize; // Hash value for supernode detection.
+    // let headColumn: i32; // Head of hash bucket.
+    // let firstCol: i32; // First column in hash bucket.
+    // let tagMark: i32; // Marker value for mark array.
+    // let rowMark: i32; // Row [row].shared2.mark
+    // let setDifference: i32; /// Set difference size of row with pivot row.
+    // let minScore: i32; // Smallest column score.
+    // let colThickness: i32; // "thickness" (no. of columns in a supercol)
+    // let maxMark: i32; // Maximum value of tag_mark.
+    // let pivotColThickness: i32; // Number of columns represented by pivot col.
+    // let prevCol: i32; // Used by Dlist operations.
+    // let nextCol: i32; // Used by Dlist operations.
+    // let ngarbage: i32; // Number of garbage collections performed.
 
     #[cfg(feature = "debug")]
-    let debugd: i32; // Debug loop counter.
-    #[cfg(feature = "debug")]
-    let mut debugStep = 0; // Debug loop counter.
+    let mut debug_step = 0; // Debug loop counter.
 
     // Initialization and clear mark.
 
-    let maxMark = i32::MAX - ncol;
-    let mut tagMark = clear_mark(0, maxMark, nrow, rows); // Marker value for mark array.
-    let mut minScore = 0; // Smallest column score.
+    let max_mark = i32::MAX - ncol; // Maximum value of tag_mark.
+    let mut tag_mark = clear_mark(0, max_mark, nrow, rows); // Marker value for mark array.
+    let mut min_score = 0; // Smallest column score.
     let mut ngarbage = 0; // Number of garbage collections performed.
     debug1!("colamd: Ordering, n_col2={}", n_col2);
 
@@ -528,14 +533,14 @@ pub(crate) fn find_ordering(
     while k < n_col2 {
         #[cfg(feature = "debug")]
         {
-            if debugStep % 100 == 0 {
+            if debug_step % 100 == 0 {
                 debug2!("\n...      Step k: {} out of n_col2: {}", k, n_col2);
             } else {
                 debug3!("\n----------Step k: {} out of n_col2: {}", k, n_col2);
             }
-            debugStep += 1;
-            debugDegLists(nrow, ncol, rows, cols, head, minScore, n_col2 - k, maxdeg);
-            debugMatrix(nrow, ncol, rows, cols, A);
+            debug_step += 1;
+            debug_deg_lists(nrow, ncol, rows, cols, head, min_score, n_col2 - k, maxdeg);
+            debug_matrix(nrow, ncol, rows, cols, a_ind);
         }
         // ndebug
 
@@ -544,88 +549,80 @@ pub(crate) fn find_ordering(
         #[cfg(feature = "debug")]
         {
             // Make sure degree list isn't empty.
-            assert!(minScore >= 0);
-            assert!(minScore <= ncol);
-            assert!(head[minScore] >= empty);
+            assert_debug!(min_score >= 0);
+            assert_debug!(min_score <= ncol);
+            assert_debug!(head[min_score as usize] >= EMPTY);
 
-            for debugd in 0..minScore {
-                assert!(head[debugd] == empty);
+            for debugd in 0..min_score as usize {
+                assert_debug!(head[debugd] == EMPTY);
             }
         }
-        // ndebug
 
         // Get pivot column from head of minimum degree list.
-        while head[minScore as usize] == empty && minScore < ncol {
-            minScore += 1;
+        while head[min_score as usize] == EMPTY && min_score < ncol {
+            min_score += 1;
         }
-        let pivotCol = head[minScore as usize] as usize; // Current pivot column.
-        #[cfg(feature = "debug")]
-        assert(pivotCol >= 0 && pivotCol <= ncol as usize);
+        let pivot_col = head[min_score as usize] as usize; // Current pivot column.
+        assert_debug!(/*pivot_col >= 0 &&*/ pivot_col <= ncol as usize);
 
-        let nextCol = cols[pivotCol].degree_next();
-        head[minScore as usize] = nextCol;
-        if nextCol != empty {
-            cols[nextCol as usize].set_prev(empty);
+        let next_col = cols[pivot_col].degree_next();
+        head[min_score as usize] = next_col;
+        if next_col != EMPTY {
+            cols[next_col as usize].set_prev(EMPTY);
         }
 
-        #[cfg(feature = "debug")]
-        {
-            assert!(colIsAlive(cols, pivotCol));
-            debug3!("Pivot col: {}\n", pivotCol);
-        }
+        assert_debug!(col_is_alive(cols, pivot_col));
+        debug3!("Pivot col: {}\n", pivot_col);
 
         // Remember score for defrag check.
-        let pivotColScore = cols[pivotCol].score(); // Score of pivot column.
+        let pivot_col_score = cols[pivot_col].score(); // Score of pivot column.
 
         // The pivot column is the kth column in the pivot order.
-        cols[pivotCol].set_order(k);
+        cols[pivot_col].set_order(k);
 
         // Increment order count by column thickness.
-        let pivotColThickness = cols[pivotCol].thickness(); // Number of columns represented by pivot col.
-        k += pivotColThickness;
-        #[cfg(feature = "debug")]
-        {
-            assert!(pivotColThickness > 0);
-            debug3!("Pivot col: {} thick {}", pivotCol, pivotColThickness);
-        }
+        let pivot_col_thickness = cols[pivot_col].thickness(); // Number of columns represented by pivot col.
+        k += pivot_col_thickness;
+
+        assert_debug!(pivot_col_thickness > 0);
+        debug3!("Pivot col: {} thick {}", pivot_col, pivot_col_thickness);
 
         // Garbage_collection, if necessary.
 
-        let neededMemory = i32::min(pivotColScore, ncol - k); // Free space needed for pivot row.
-        if pfree + neededMemory >= Alen {
-            pfree = garbage_collection(nrow, ncol, rows, cols, A, pfree);
+        let needed_memory = i32::min(pivot_col_score, ncol - k); // Free space needed for pivot row.
+        if pfree + needed_memory >= a_len {
+            pfree = garbage_collection(nrow, ncol, rows, cols, a_ind, pfree);
             ngarbage += 1;
             // After garbage collection we will have enough.
-            #[cfg(feature = "debug")]
-            assert!(pfree + neededMemory < Alen);
+            assert_debug!(pfree + needed_memory < a_len);
 
             // Garbage collection has wiped out the Row[].shared2.mark array.
-            tagMark = clear_mark(0, maxMark, nrow, rows);
+            tag_mark = clear_mark(0, max_mark, nrow, rows);
 
             #[cfg(feature = "debug")]
-            debug_matrix(nrow, ncol, rows, cols, A);
+            debug_matrix(nrow, ncol, rows, cols, a_ind);
         }
 
         // Compute pivot row pattern.
 
         // Get starting location for this new merged row.
-        let pivotRowStart = pfree; // Pointer to start of pivot row.
+        let pivot_row_start = pfree; // Pointer to start of pivot row.
 
         // Initialize new row counts to zero.
-        let mut pivotRowDegree = 0; // Number of columns in pivot row.
+        let mut pivot_row_degree = 0; // Number of columns in pivot row.
 
         // Tag pivot column as having been visited so it isn't included
         // in merged pivot row.
-        cols[pivotCol].set_thickness(-pivotColThickness);
+        cols[pivot_col].set_thickness(-pivot_col_thickness);
 
         // Pivot row is the union of all rows in the pivot column pattern.
-        let mut cp = cols[pivotCol].start as usize;
-        let cpend = cp + cols[pivotCol].length as usize; // Pointer to the end of the column.
+        let mut cp = cols[pivot_col].start as usize;
+        let cpend = cp + cols[pivot_col].length as usize; // Pointer to the end of the column.
         while cp < cpend {
             // Get a row.
-            let row = A[cp] as usize;
+            let row = a_ind[cp] as usize;
             cp += 1;
-            debug4!("Pivot col pattern {] {}", rowIsAlive(rows, row), row);
+            debug4!("Pivot col pattern {} {}", row_is_alive(rows, row), row);
 
             // Skip if row is dead.
             if row_is_alive(rows, row) {
@@ -633,43 +630,42 @@ pub(crate) fn find_ordering(
                 let rpend = rp + rows[row].length as usize; // Pointer to the end of the row.
                 while rp < rpend {
                     // Get a column.
-                    let col = A[rp] as usize;
+                    let col = a_ind[rp] as usize;
                     rp += 1;
                     // Add the column, if alive and untagged.
-                    let colThickness = cols[col].thickness(); // "thickness" (no. of columns in a supercol)
-                    if colThickness > 0 && col_is_alive(cols, col) {
+                    let col_thickness = cols[col].thickness(); // "thickness" (no. of columns in a supercol)
+                    if col_thickness > 0 && col_is_alive(cols, col) {
                         // Tag column in pivot row.
-                        cols[col].set_thickness(-colThickness);
-                        #[cfg(feature = "debug")]
-                        assert!(pfree < Alen);
+                        cols[col].set_thickness(-col_thickness);
+                        assert_debug!(pfree < a_len);
 
                         // Place column in pivot row.
-                        A[pfree as usize] = col as i32;
+                        a_ind[pfree as usize] = col as i32;
                         pfree += 1;
-                        pivotRowDegree += colThickness;
+                        pivot_row_degree += col_thickness;
                     }
                 }
             }
         }
 
         // Clear tag on pivot column.
-        cols[pivotCol].set_thickness(pivotColThickness);
-        maxdeg = i32::max(maxdeg, pivotRowDegree);
+        cols[pivot_col].set_thickness(pivot_col_thickness);
+        maxdeg = i32::max(maxdeg, pivot_row_degree);
 
         #[cfg(feature = "debug")]
         {
             debug3!("check2");
-            debug_mark(nrow, rows, tagMark, maxMark);
+            debug_mark(nrow, rows, tag_mark, max_mark);
         }
 
         // Kill all rows used to construct pivot row.
 
         // Also kill pivot row, temporarily.
-        let mut cp = cols[pivotCol].start as usize;
-        let cpend = cp + cols[pivotCol].length as usize; // Pointer to the end of the column.
+        let mut cp = cols[pivot_col].start as usize;
+        let cpend = cp + cols[pivot_col].length as usize; // Pointer to the end of the column.
         while cp < cpend {
             // May be killing an already dead row.
-            let row = A[cp] as usize;
+            let row = a_ind[cp] as usize;
             cp += 1;
             debug3!("Kill row in pivot col: {}", row);
 
@@ -678,21 +674,19 @@ pub(crate) fn find_ordering(
 
         // Select a row index to use as the new pivot row.
 
-        let pivotRowLength = pfree - pivotRowStart; // Number of supercolumns in pivot row.
-        let pivotRow = if pivotRowLength > 0 {
+        let pivot_row_length = pfree - pivot_row_start; // Number of supercolumns in pivot row.
+        let pivot_row = if pivot_row_length > 0 {
             // Pick the "pivot" row arbitrarily (first row in col).
-            let pivotRow = A[cols[pivotCol].start as usize];
-            debug3!("Pivotal row is {}", pivotRow);
-            pivotRow
+            let pivot_row = a_ind[cols[pivot_col].start as usize];
+            debug3!("Pivotal row is {}", pivot_row);
+            pivot_row
         } else {
             // There is no pivot row, since it is of zero length.
-            let pivotRow = empty;
-            #[cfg(feature = "debug")]
-            assert!(pivotRowLength == 0);
-            pivotRow
+            let pivot_row = EMPTY;
+            assert_debug!(pivot_row_length == 0);
+            pivot_row
         };
-        #[cfg(feature = "debug")]
-        assert!(cols[pivotCol].length > 0 || pivotRowLength == 0);
+        assert_debug!(cols[pivot_col].length > 0 || pivot_row_length == 0);
 
         // Approximate degree computation.
 
@@ -722,42 +716,38 @@ pub(crate) fn find_ordering(
         debug3!("Pivot row: ");
 
         // For each column in pivot row.
-        let mut rp = pivotRowStart as usize;
-        let rpend = rp + pivotRowLength as usize;
+        let mut rp = pivot_row_start as usize;
+        let rpend = rp + pivot_row_length as usize;
         while rp < rpend {
-            let col = A[rp] as usize;
+            let col = a_ind[rp] as usize;
             rp += 1;
-            #[cfg(feature = "debug")]
-            {
-                assert!(colIsAlive(cols, col) && col != pivotCol);
-                debug3!("Col: {}", col);
-            }
+
+            assert_debug!(col_is_alive(cols, col) && col != pivot_col);
+            debug3!("Col: {}", col);
 
             // Clear tags used to construct pivot row pattern.
-            let colThickness = -cols[col].thickness();
-            #[cfg(feature = "debug")]
-            assert!(colThickness > 0);
+            let col_thickness = -cols[col].thickness();
+            assert_debug!(col_thickness > 0);
 
-            cols[col].set_thickness(colThickness);
+            cols[col].set_thickness(col_thickness);
 
             // Remove column from degree list.
 
-            let curScore = cols[col].score(); // Score of current column.
-            let prevCol = cols[col].prev();
-            let nextCol = cols[col].degree_next();
-            #[cfg(feature = "debug")]
-            {
-                assert(curScore >= 0);
-                assert(curScore <= ncol);
-                assert(curScore >= empty);
-            }
-            if prevCol == empty {
-                head[curScore as usize] = nextCol;
+            let cur_score = cols[col].score(); // Score of current column.
+            let prev_col = cols[col].prev();
+            let next_col = cols[col].degree_next();
+
+            assert_debug!(cur_score >= 0);
+            assert_debug!(cur_score <= ncol);
+            assert_debug!(cur_score >= EMPTY);
+
+            if prev_col == EMPTY {
+                head[cur_score as usize] = next_col;
             } else {
-                cols[prevCol as usize].set_degree_next(nextCol);
+                cols[prev_col as usize].set_degree_next(next_col);
             }
-            if nextCol != empty {
-                cols[nextCol as usize].set_prev(prevCol);
+            if next_col != EMPTY {
+                cols[next_col as usize].set_prev(prev_col);
             }
 
             // Scan the column.
@@ -766,50 +756,48 @@ pub(crate) fn find_ordering(
             let cpend = cp + cols[col].length as usize; // Pointer to the end of a column.
             while cp < cpend {
                 // Get a row.
-                let row = A[cp] as usize;
+                let row = a_ind[cp] as usize;
                 cp += 1;
-                let rowMark = rows[row].mark();
+                let row_mark = rows[row].mark();
                 // Skip if dead.
-                if row_is_marked_dead(rowMark) {
+                if row_is_marked_dead(row_mark) {
                     continue;
                 }
-                #[cfg(feature = "debug")]
-                assert!(row != pivotRow);
+                assert_debug!(row != pivot_row as usize);
 
-                let mut setDifference = rowMark - tagMark;
+                // Set difference size of row with pivot row.
+                let mut set_difference = row_mark - tag_mark;
                 // Check if the row has been seen yet.
-                if setDifference < 0 {
-                    #[cfg(feature = "debug")]
-                    assert!(rows[row].degree() <= maxdeg);
+                if set_difference < 0 {
+                    assert_debug!(rows[row].degree() <= maxdeg);
 
-                    setDifference = rows[row].degree();
+                    set_difference = rows[row].degree();
                 }
                 // Subtract column thickness from this row's set difference.
-                setDifference -= colThickness;
-                #[cfg(feature = "debug")]
-                assert!(setDifference >= 0);
+                set_difference -= col_thickness;
+                assert_debug!(set_difference >= 0);
 
                 // Absorb this row if the set difference becomes zero.
-                if setDifference == 0 && aggressive {
-                    debug3!("aggressive absorption. Row: %d", row);
+                if set_difference == 0 && aggressive {
+                    debug3!("aggressive absorption. Row: {}", row);
 
                     kill_row(rows, row);
                 } else {
                     // Save the new mark.
-                    rows[row].set_mark(setDifference + tagMark);
+                    rows[row].set_mark(set_difference + tag_mark);
                 }
             }
         }
 
         #[cfg(feature = "debug")]
-        debugDegLists(
+        debug_deg_lists(
             nrow,
             ncol,
             rows,
             cols,
             head,
-            minScore,
-            n_col2 - k - pivotRowDegree,
+            min_score,
+            n_col2 - k - pivot_row_degree,
             maxdeg,
         );
 
@@ -818,17 +806,16 @@ pub(crate) fn find_ordering(
         debug3!("** Adding set differences phase. **");
 
         // For each column in pivot row.
-        let mut rp = pivotRowStart as usize;
-        let rpend = rp + pivotRowLength as usize;
+        let mut rp = pivot_row_start as usize;
+        let rpend = rp + pivot_row_length as usize;
         while rp < rpend {
             // Get a column.
-            let col = A[rp] as usize;
+            let col = a_ind[rp] as usize;
             rp += 1;
-            #[cfg(feature = "debug")]
-            assert(colIsAlive(cols, col) && col != pivotCol);
+            assert_debug!(col_is_alive(cols, col) && col != pivot_col);
 
             let mut hash: usize = 0; // Hash value for supernode detection.
-            let mut curScore = 0; // Score of current column.
+            let mut cur_score = 0; // Score of current column.
             let mut cp = cols[col].start as usize;
             // Compact the column.
             let mut newcp = cp as i32; // Modified column pointer.
@@ -838,34 +825,32 @@ pub(crate) fn find_ordering(
 
             while cp < cpend {
                 // Get a row.
-                let row = A[cp] as usize;
+                let row = a_ind[cp] as usize;
                 cp += 1;
-                #[cfg(feature = "debug")]
-                assert!(row >= 0 && row < nrow);
+                assert_debug!(/*row >= 0 &&*/ row < nrow as usize);
 
-                let rowMark = rows[row].mark();
+                let row_mark = rows[row].mark();
                 // Skip if dead.
-                if row_is_marked_dead(rowMark) {
+                if row_is_marked_dead(row_mark) {
                     debug4!(" Row {}, dead", row);
                     continue;
                 }
-                debug4!(" Row {}, set diff {}", row, rowMark - tagMark);
-                #[cfg(feature = "debug")]
-                assert!(rowMark >= tagMark);
+                debug4!(" Row {}, set diff {}", row, row_mark - tag_mark);
+                assert_debug!(row_mark >= tag_mark);
 
                 // Compact the column.
-                A[newcp as usize] = row as i32;
+                a_ind[newcp as usize] = row as i32;
                 newcp += 1;
                 // Compute hash function.
                 hash += row as usize;
                 // Add set difference.
-                curScore += rowMark - tagMark;
+                cur_score += row_mark - tag_mark;
                 // Integer overflow...
-                curScore = i32::min(curScore, ncol);
+                cur_score = i32::min(cur_score, ncol);
             }
 
             // Recompute the column's length.
-            cols[col].length = (newcp - cols[col].start);
+            cols[col].length = newcp - cols[col].start;
 
             // Further mass elimination.
 
@@ -874,9 +859,8 @@ pub(crate) fn find_ordering(
 
                 // Nothing left but the pivot row in this column.
                 kill_principal_col(cols, col);
-                pivotRowDegree -= cols[col].thickness();
-                #[cfg(feature = "debug")]
-                assert(pivotRowDegree >= 0);
+                pivot_row_degree -= cols[col].thickness();
+                assert_debug!(pivot_row_degree >= 0);
 
                 // Order it.
                 cols[col].set_order(k);
@@ -888,35 +872,33 @@ pub(crate) fn find_ordering(
                 debug4!("Preparing supercol detection for Col: {}.", col);
 
                 // Save score so far.
-                cols[col].set_score(curScore);
+                cols[col].set_score(cur_score);
 
                 // Add column to hash table, for supercolumn detection.
                 hash %= (ncol as usize) + 1;
 
                 debug4!(" Hash = {}, n_col = {}.", hash, ncol);
-                #[cfg(feature = "debug")]
-                assert!((hash as i32) <= ncol);
+                assert_debug!((hash as i32) <= ncol);
 
-                let headColumn = head[hash]; // Head of hash bucket.
-                                             // First column in hash bucket.
-                let firstCol = if headColumn > empty {
+                let head_column = head[hash]; // Head of hash bucket.
+                                              // First column in hash bucket.
+                let first_col = if head_column > EMPTY {
                     // Degree list "hash" is non-empty, use prev (shared3) of
                     // first column in degree list as head of hash bucket.
-                    let firstCol = cols[headColumn as usize].headhash();
-                    cols[headColumn as usize].set_headhash(col as i32);
-                    firstCol
+                    let first_col = cols[head_column as usize].headhash();
+                    cols[head_column as usize].set_headhash(col as i32);
+                    first_col
                 } else {
                     // degree list "hash" is empty, use head as hash bucket.
-                    let firstCol = -(headColumn + 2);
+                    let first_col = -(head_column + 2);
                     head[hash] = -1 * (col + 2) as i32;
-                    firstCol
+                    first_col
                 };
-                cols[col].set_hash_next(firstCol);
+                cols[col].set_hash_next(first_col);
 
                 // Save hash function in Col [col].shared3.hash
                 cols[col].set_hash(hash as i32);
-                #[cfg(feature = "debug")]
-                assert!(colIsAlive(cols, col));
+                assert_debug!(col_is_alive(cols, col));
             }
         }
 
@@ -931,26 +913,34 @@ pub(crate) fn find_ordering(
             ncol,
             Some(rows),
             cols,
-            A,
+            a_ind,
             head,
-            pivotRowStart,
-            pivotRowLength,
+            pivot_row_start,
+            pivot_row_length,
         );
         #[cfg(not(feature = "debug"))]
-        detect_super_cols(0, None, cols, A, head, pivotRowStart, pivotRowLength);
+        detect_super_cols(
+            0,
+            None,
+            cols,
+            a_ind,
+            head,
+            pivot_row_start,
+            pivot_row_length,
+        );
 
         // Kill the pivotal column.
 
-        kill_principal_col(cols, pivotCol);
+        kill_principal_col(cols, pivot_col);
 
         // Clear mark.
 
-        tagMark = clear_mark(tagMark + maxdeg + 1, maxMark, nrow, rows);
+        tag_mark = clear_mark(tag_mark + maxdeg + 1, max_mark, nrow, rows);
 
         #[cfg(feature = "debug")]
         {
             debug3!("check3");
-            debugMark(nrow, rows, tagMark, maxMark);
+            debug_mark(nrow, rows, tag_mark, max_mark);
         }
 
         // Finalize the new pivot row, and column scores.
@@ -958,84 +948,84 @@ pub(crate) fn find_ordering(
         debug3!("** Finalize scores phase. **");
 
         // For each column in pivot row.
-        let mut rp = pivotRowStart as usize;
+        let mut rp = pivot_row_start as usize;
         // Compact the pivot row.
         let mut newrp = rp as i32; // Modified row pointer.
-        let rpend = rp + pivotRowLength as usize;
+        let rpend = rp + pivot_row_length as usize;
         while rp < rpend {
-            let col = A[rp] as usize;
+            let col = a_ind[rp] as usize;
             rp += 1;
             // Skip dead columns.
             if col_is_dead(cols, col) {
                 continue;
             }
-            A[newrp as usize] = col as i32;
+            a_ind[newrp as usize] = col as i32;
             newrp += 1;
             // Add new pivot row to column.
-            A[(cols[col].start + cols[col].length) as usize] = pivotRow;
+            a_ind[(cols[col].start + cols[col].length) as usize] = pivot_row;
             cols[col].length += 1;
 
             // Retrieve score so far and add on pivot row's degree.
             // (we wait until here for this in case the pivot
             // row's degree was reduced due to mass elimination).
-            let mut curScore = cols[col].score() + pivotRowDegree;
+            let mut cur_score = cols[col].score() + pivot_row_degree;
 
             // Calculate the max possible score as the number of
             // external columns minus the 'k' value minus the
             // columns thickness.
-            let maxScore = ncol - k - cols[col].thickness();
+            let max_score = ncol - k - cols[col].thickness();
 
             // Make the score the external degree of the union-of-rows.
-            curScore -= cols[col].thickness();
+            cur_score -= cols[col].thickness();
 
             // Make sure score is less or equal than the max score.
-            curScore = i32::min(curScore, maxScore);
-            #[cfg(feature = "debug")]
-            assert!(curScore >= 0);
+            cur_score = i32::min(cur_score, max_score);
+            assert_debug!(cur_score >= 0);
 
             // Store updated score.
-            cols[col].set_score(curScore);
+            cols[col].set_score(cur_score);
 
             // Place column back in degree list.
 
-            #[cfg(feature = "debug")]
-            {
-                assert!(minScore >= 0);
-                assert!(minScore <= ncol);
-                assert!(curScore >= 0);
-                assert!(curScore <= ncol);
-                assert!(head[curScore] >= empty);
+            assert_debug!(min_score >= 0);
+            assert_debug!(min_score <= ncol);
+            assert_debug!(cur_score >= 0);
+            assert_debug!(cur_score <= ncol);
+            assert_debug!(head[cur_score as usize] >= EMPTY);
+
+            let next_col = head[cur_score as usize];
+            cols[col].set_degree_next(next_col);
+            cols[col].set_prev(EMPTY);
+            if next_col != EMPTY {
+                cols[next_col as usize].set_prev(col as i32);
             }
-            let nextCol = head[curScore as usize];
-            cols[col].set_degree_next(nextCol);
-            cols[col].set_prev(empty);
-            if nextCol != empty {
-                cols[nextCol as usize].set_prev(col as i32);
-            }
-            head[curScore as usize] = col as i32;
+            head[cur_score as usize] = col as i32;
 
             // See if this score is less than current min.
-            minScore = i32::min(minScore, curScore);
+            min_score = i32::min(min_score, cur_score);
         }
 
         #[cfg(feature = "debug")]
-        debugDegLists(nrow, ncol, rows, cols, head, minScore, n_col2 - k, maxdeg);
+        debug_deg_lists(nrow, ncol, rows, cols, head, min_score, n_col2 - k, maxdeg);
 
         // Resurrect the new pivot row.
 
-        if pivotRowDegree > 0 {
+        if pivot_row_degree > 0 {
             // Update pivot row length to reflect any cols that were killed
             // during super-col detection and mass elimination.
-            rows[pivotRow as usize].start = pivotRowStart;
-            rows[pivotRow as usize].length = newrp - pivotRowStart;
-            #[cfg(feature = "debug")]
-            assert!(rows[pivotRow as usize].length > 0);
+            rows[pivot_row as usize].start = pivot_row_start;
+            rows[pivot_row as usize].length = newrp - pivot_row_start;
+            assert_debug!(rows[pivot_row as usize].length > 0);
 
-            rows[pivotRow as usize].set_degree(pivotRowDegree);
-            rows[pivotRow as usize].set_mark(0);
+            rows[pivot_row as usize].set_degree(pivot_row_degree);
+            rows[pivot_row as usize].set_mark(0);
             // Pivot row is no longer dead.
 
-            debug1!("Resurrect Pivot_row %d deg: %d", pivotRow, pivotRowDegree);
+            debug1!(
+                "Resurrect Pivot_row {} deg: {}",
+                pivot_row,
+                pivot_row_degree
+            );
         }
     }
 
@@ -1062,10 +1052,9 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
 
     for i in 0..ncol as usize {
         // Find an un-ordered non-principal column.
-        #[cfg(feature = "debug")]
-        assert!(colIsDead(cols, i));
+        assert_debug!(col_is_dead(cols, i));
 
-        if !col_is_dead_principal(cols, i) && cols[i].order() == empty {
+        if !col_is_dead_principal(cols, i) && cols[i].order() == EMPTY {
             let mut parent = i; // Index of column's parent.
 
             // Once found, find its principal parent.
@@ -1087,8 +1076,7 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
 
             // for ok := true; ok; ok = (cols[c].order() == empty) {
             loop {
-                #[cfg(feature = "debug")]
-                assert!(cols[c].order() == empty);
+                assert_debug!(cols[c].order() == EMPTY);
 
                 // Order this column.
                 cols[c].set_order(order);
@@ -1103,7 +1091,7 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
                 // guaranteed not to be anymore unordered columns
                 // above an ordered column.
 
-                if cols[c].order() != empty {
+                if cols[c].order() != EMPTY {
                     break; // TODO: check
                 }
             }
@@ -1145,34 +1133,34 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
 // linear in the sum of the sizes (lengths) of each column whose score has
 // just been computed in the approximate degree computation.
 pub(crate) fn detect_super_cols(
-    ncol: i32,
-    rows: Option<&[Row]>,
+    _ncol: i32,
+    _rows: Option<&[Row]>,
     cols: &mut [Col],
-    A: &[i32],
+    a_ind: &[i32],
     head: &mut [i32],
-    rowStart: i32,
-    rowLength: i32,
+    row_start: i32,
+    row_length: i32,
 ) {
     // let hash: i32; // Hash value for a column.
-    let rp: usize; // Pointer to a row.
-                   // let c: i32; // A column index.
-                   // let superc: i32; // Column index of the column to absorb into.
-                   // let cp1: usize; // Column pointer for column super_c.
-                   // let cp2: usize; // Column pointer for column c.
-                   // let length: i32; // Length of column super_c.
-                   // let prevc: i32; // Column preceding c in hash bucket.
-                   // let i: i32; // Loop counter.
-    let rpend: usize; // Pointer to the end of the row.
-                      // let col: usize; // A column index in the row to check.
-                      // let headColumn: i32; // First column in hash bucket or degree list.
-                      // let firstCol: i32; // First column in hash bucket.
+    // let rp: usize; // Pointer to a row.
+    // let c: i32; // A column index.
+    // let superc: i32; // Column index of the column to absorb into.
+    // let cp1: usize; // Column pointer for column super_c.
+    // let cp2: usize; // Column pointer for column c.
+    // let length: i32; // Length of column super_c.
+    // let prevc: i32; // Column preceding c in hash bucket.
+    // let i: i32; // Loop counter.
+    // let rpend: usize; // Pointer to the end of the row.
+    // let col: usize; // A column index in the row to check.
+    // let headColumn: i32; // First column in hash bucket or degree list.
+    // let first_col: i32; // First column in hash bucket.
 
     // Consider each column in the row.
 
-    let mut rp = rowStart as usize;
-    let rpend = rp + rowLength as usize;
+    let mut rp = row_start as usize;
+    let rpend = rp + row_length as usize;
     while rp < rpend {
-        let col = A[rp] as usize; // Column index in the row to check.
+        let col = a_ind[rp] as usize; // Column index in the row to check.
         rp += 1;
         if col_is_dead(cols, col) {
             continue;
@@ -1180,30 +1168,27 @@ pub(crate) fn detect_super_cols(
 
         // Get hash number for this column.
         let hash = cols[col].hash();
-        #[cfg(feature = "debug")]
-        assert!(hash <= ncol);
+        assert_debug!(hash <= _ncol);
 
         // Get the first column in this hash bucket.
 
-        let headColumn = head[hash as usize]; // First column in hash bucket or degree list.
+        let head_column = head[hash as usize]; // First column in hash bucket or degree list.
 
         // First column in hash bucket.
-        let firstCol = if headColumn > empty {
-            cols[headColumn as usize].headhash()
+        let first_col = if head_column > EMPTY {
+            cols[head_column as usize].headhash()
         } else {
-            -(headColumn + 2)
+            -(head_column + 2)
         };
 
         // Consider each column in the hash bucket.
 
-        // for superc = firstCol; superc != empty; superc = cols[superc].hashNext() {  // TODO: check
-        let mut superc = firstCol; // Column index of the column to absorb into.
-        while superc != empty {
-            #[cfg(feature = "debug")]
-            {
-                assert!(colIsAlive(cols, superc));
-                assert!(cols[superc].hash() == hash);
-            }
+        // for superc = first_col; superc != empty; superc = cols[superc].hashNext() {  // TODO: check
+        let mut superc = first_col; // Column index of the column to absorb into.
+        while superc != EMPTY {
+            assert_debug!(col_is_alive(cols, superc as usize));
+            assert_debug!(cols[superc as usize].hash() == hash);
+
             let length = cols[superc as usize].length; // Length of column super_c.
 
             // prev_c is the column preceding column c in the hash bucket.
@@ -1213,13 +1198,10 @@ pub(crate) fn detect_super_cols(
 
             // for c = cols[superc].hashNext(); c != empty; c = cols[c].hashNext() {  TODO: check
             let mut c = cols[superc as usize].hash_next();
-            while c != empty {
-                #[cfg(feature = "debug")]
-                {
-                    assert!(c != superc);
-                    assert!(colIsAlive(cols, c));
-                    assert!(cols[c].hash() == hash);
-                }
+            while c != EMPTY {
+                assert_debug!(c != superc);
+                assert_debug!(col_is_alive(cols, c as usize));
+                assert_debug!(cols[c as usize].hash() == hash);
 
                 // Not identical if lengths or scores are different.
                 if cols[c as usize].length != length
@@ -1239,9 +1221,9 @@ pub(crate) fn detect_super_cols(
                 while i < length {
                     // The columns are "clean" (no dead rows).
                     #[cfg(feature = "debug")]
-                    {
-                        assert!(rowIsAlive(rows, A[cp1]));
-                        assert!(rowIsAlive(rows, A[cp2]));
+                    if let Some(rows) = _rows {
+                        assert_debug!(row_is_alive(rows, a_ind[cp1] as usize));
+                        assert_debug!(row_is_alive(rows, a_ind[cp2] as usize));
                     }
                     // Row indices will same order for both supercols,
                     // no gather scatter nessasary.
@@ -1249,7 +1231,7 @@ pub(crate) fn detect_super_cols(
                     cp1 += 1;
                     let _cp2 = cp2;
                     cp2 += 1;
-                    if A[_cp1] != A[_cp2] {
+                    if a_ind[_cp1] != a_ind[_cp2] {
                         break;
                     }
                     i += 1;
@@ -1265,8 +1247,7 @@ pub(crate) fn detect_super_cols(
 
                 // Got it! Two columns are identical.
 
-                #[cfg(feature = "debug")]
-                assert!(cols[c].score() == cols[superc].score());
+                assert_debug!(cols[c as usize].score() == cols[superc as usize].score());
 
                 cols[superc as usize].set_thickness(
                     cols[superc as usize].thickness() + cols[c as usize].thickness(),
@@ -1274,7 +1255,7 @@ pub(crate) fn detect_super_cols(
                 cols[c as usize].set_parent(superc);
                 kill_non_principal_col(cols, c as usize);
                 // Order c later, in orderChildren().
-                cols[c as usize].set_order(empty);
+                cols[c as usize].set_order(EMPTY);
                 // Remove c from hash bucket.
                 cols[prevc as usize].set_hash_next(cols[c as usize].hash_next());
 
@@ -1284,12 +1265,12 @@ pub(crate) fn detect_super_cols(
         }
 
         // Empty this hash bucket.
-        if headColumn > empty {
+        if head_column > EMPTY {
             // Corresponding degree list "hash" is not empty.
-            cols[headColumn as usize].set_headhash(empty);
+            cols[head_column as usize].set_headhash(EMPTY);
         } else {
             // Corresponding degree list "hash" is empty.
-            head[hash as usize] = empty;
+            head[hash as usize] = EMPTY;
         }
     }
 }
@@ -1304,7 +1285,7 @@ pub(crate) fn garbage_collection(
     n_col: i32,
     rows: &mut [Row],
     cols: &mut [Col],
-    A: &mut [i32],
+    a_ind: &mut [i32],
     pfree: i32,
 ) -> i32 {
     // let psrc: i32; // Source pointer.
@@ -1314,15 +1295,14 @@ pub(crate) fn garbage_collection(
     // let c: usize; // A column index.
     // let length: i32; // Length of a row or column.
 
-    let mut debugRows = 0;
     #[cfg(feature = "debug")]
-    {
+    let mut debug_rows = {
         debug2!("Defrag..");
-        for psrc in 0..pfree {
-            assert!(A[psrc] >= 0);
+        for psrc in 0..pfree as usize {
+            assert_debug!(a_ind[psrc] >= 0);
         }
-        debugRows = 0
-    }
+        0
+    };
 
     // Defragment the columns.
 
@@ -1332,16 +1312,15 @@ pub(crate) fn garbage_collection(
             let mut psrc = cols[c].start;
 
             // Move and compact the column.
-            #[cfg(feature = "debug")]
-            assert!(pdest <= psrc);
+            assert_debug!(pdest <= psrc);
 
             cols[c].start = pdest - 0;
             let length = cols[c].length;
-            for j in 0..length {
-                let r = A[psrc as usize] as usize;
+            for _j in 0..length {
+                let r = a_ind[psrc as usize] as usize;
                 psrc += 1;
                 if row_is_alive(rows, r) {
-                    A[pdest as usize] = r as i32;
+                    a_ind[pdest as usize] = r as i32;
                 }
             }
             cols[c].length = pdest - cols[c].start;
@@ -1360,16 +1339,15 @@ pub(crate) fn garbage_collection(
         } else {
             // Save first column index in Row [r].shared2.first_column.
             let psrc = rows[r].start;
-            rows[r].set_first_column(A[psrc as usize]);
-            #[cfg(feature = "debug")]
-            assert!(rowIsAlive(rows, r));
+            rows[r].set_first_column(a_ind[psrc as usize]);
+            assert_debug!(row_is_alive(rows, r));
 
             // Flag the start of the row with the one's complement of row.
-            A[psrc as usize] = ones_complement(r as i32);
+            a_ind[psrc as usize] = ones_complement(r as i32);
 
             #[cfg(feature = "debug")]
             {
-                debugRows += 1;
+                debug_rows += 1;
             }
         }
     }
@@ -1381,61 +1359,56 @@ pub(crate) fn garbage_collection(
         // Find a negative number ... the start of a row.
         let _psrc = psrc;
         psrc += 1;
-        if A[_psrc as usize] < 0 {
+        if a_ind[_psrc as usize] < 0 {
             psrc -= 1;
             // Get the row index.
-            let r = ones_complement(A[psrc as usize]) as usize;
-            #[cfg(feature = "debug")]
-            assert!(r >= 0 && r < n_row);
+            let r = ones_complement(a_ind[psrc as usize]) as usize;
+            assert_debug!(/*r >= 0 &&*/ r < n_row as usize);
 
             // Restore first column index.
-            A[psrc as usize] = rows[r].first_column();
-            #[cfg(feature = "debug")]
-            {
-                assert!(rowIsAlive(rows, r));
-                assert!(rows[r].length > 0);
-            }
+            a_ind[psrc as usize] = rows[r].first_column();
+            assert_debug!(row_is_alive(rows, r));
+            assert_debug!(rows[r].length > 0);
+
             // Move and compact the row.
-            #[cfg(feature = "debug")]
-            assert!(pdest <= psrc);
+            assert_debug!(pdest <= psrc);
 
             rows[r].start = pdest - 0;
             let length = rows[r].length;
-            for j in 0..length {
-                let c = A[psrc as usize] as usize;
+            for _j in 0..length {
+                let c = a_ind[psrc as usize] as usize;
                 psrc += 1;
                 if col_is_alive(cols, c) {
-                    A[pdest as usize] = c as i32;
+                    a_ind[pdest as usize] = c as i32;
                     pdest += 1;
                 }
             }
             rows[r].length = pdest - rows[r].start;
             #[cfg(feature = "debug")]
             {
-                assert!(rows[r].length > 0);
-                debugRows -= 1;
+                assert_debug!(rows[r].length > 0);
+                debug_rows -= 1;
             }
         }
     }
 
     // Ensure we found all the rows.
-    #[cfg(feature = "debug")]
-    assert!(debugRows == 0);
+    assert_debug!(debug_rows == 0);
 
     // Return the new value of pfree.
 
     pdest - 0
 }
 
-// Clears the Row[].shared2.mark array, and returns the new tagMark.
-fn clear_mark(mut tagMark: i32, maxMark: i32, nrow: i32, row: &mut [Row]) -> i32 {
-    if tagMark <= 0 || tagMark >= maxMark {
+// Clears the Row[].shared2.mark array, and returns the new tag_mark.
+fn clear_mark(mut tag_mark: i32, max_mark: i32, nrow: i32, row: &mut [Row]) -> i32 {
+    if tag_mark <= 0 || tag_mark >= max_mark {
         for r in 0..nrow as usize {
             if row_is_alive(row, r) {
                 row[r].set_mark(0)
             }
         }
-        tagMark = 1;
+        tag_mark = 1;
     }
-    tagMark
+    tag_mark
 }

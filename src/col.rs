@@ -11,36 +11,36 @@ pub(crate) struct Col {
     shared4: i32,
 }
 
-pub(crate) enum ColShared1 {
-    Thickness(i32),
-    Parent(i32),
-}
-
-impl ColShared1 {
-    // Number of original columns represented by this col, if the column is alive.
-    pub(crate) fn thickness(self) -> i32 {
-        match self {
-            ColShared1::Thickness(val) => val,
-            ColShared1::Parent(val) => panic!(
-                "called `ColShared1::thickness()` on a `Parent` value: {}",
-                val
-            ),
-        }
-    }
-
-    // Parent in parent tree super-column structure, if the column is dead.
-    pub(crate) fn parent(self) -> i32 {
-        match self {
-            ColShared1::Parent(val) => val,
-            ColShared1::Thickness(val) => {
-                panic!(
-                    "called `ColShared1::parent()` on a `Thickness` value: {}",
-                    val
-                )
-            }
-        }
-    }
-}
+// pub(crate) enum ColShared1 {
+//     Thickness(i32),
+//     Parent(i32),
+// }
+//
+// impl ColShared1 {
+//     // Number of original columns represented by this col, if the column is alive.
+//     pub(crate) fn thickness(self) -> i32 {
+//         match self {
+//             ColShared1::Thickness(val) => val,
+//             ColShared1::Parent(val) => panic!(
+//                 "called `ColShared1::thickness()` on a `Parent` value: {}",
+//                 val
+//             ),
+//         }
+//     }
+//
+//     // Parent in parent tree super-column structure, if the column is dead.
+//     pub(crate) fn parent(self) -> i32 {
+//         match self {
+//             ColShared1::Parent(val) => val,
+//             ColShared1::Thickness(val) => {
+//                 panic!(
+//                     "called `ColShared1::parent()` on a `Thickness` value: {}",
+//                     val
+//                 )
+//             }
+//         }
+//     }
+// }
 
 impl Col {
     // Number of original columns represented by this
@@ -113,8 +113,8 @@ impl Col {
         self.shared4
     }
 
-    pub(crate) fn set_degree_next(&mut self, degreeNext: i32) {
-        self.shared4 = degreeNext
+    pub(crate) fn set_degree_next(&mut self, degree_next: i32) {
+        self.shared4 = degree_next
     }
 
     // Next column, if col is in a hash list.
@@ -122,7 +122,7 @@ impl Col {
         self.shared4
     }
 
-    pub(crate) fn set_hash_next(&mut self, hashNext: i32) {
-        self.shared4 = hashNext
+    pub(crate) fn set_hash_next(&mut self, hash_next: i32) {
+        self.shared4 = hash_next
     }
 }
