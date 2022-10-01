@@ -17,11 +17,7 @@
 //! than `A'A`. This also provides a good ordering for sparse partial
 //! pivoting methods, `P(AQ) = LU`, where `Q` is computed prior to numerical
 //! factorization, and `P` is computed during numerical factorization via
-//! conventional partial pivoting with row interchanges. Colamd is the
-//! column ordering method used in SuperLU, part of the ScaLAPACK library.
-//! It is also available as built-in function in MATLAB Version 6,
-//! available from MathWorks, Inc. (<http://www.mathworks.com>). This
-//! routine can be used in place of colmmd in MATLAB.
+//! conventional partial pivoting with row interchanges.
 //!
 //! Symamd computes a permutation `P` of a symmetric matrix A such that the
 //! Cholesky factorization of `PAP'` has less fill-in and requires fewer
