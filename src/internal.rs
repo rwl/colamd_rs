@@ -1,30 +1,36 @@
 use crate::col::Col;
 use crate::row::{Row, RowShared2};
 
-pub(crate) fn dense_degree(alpha: f64, n: i32) -> i32 {
-    f64::max(16.0, alpha * (n as f64).sqrt()) as i32
+#[cfg(not(feature = "i64"))]
+pub type Int = i32;
+
+#[cfg(feature = "i64")]
+pub type Int = i64;
+
+pub(crate) fn dense_degree(alpha: f64, n: Int) -> Int {
+    f64::max(16.0, alpha * (n as f64).sqrt()) as Int
 }
 
-pub(crate) fn ones_complement(r: i32) -> i32 {
+pub(crate) fn ones_complement(r: Int) -> Int {
     return -r - 1;
 }
 
-pub(crate) const EMPTY: i32 = -1;
+pub(crate) const EMPTY: Int = -1;
 
 // Row and column status.
-pub(crate) const ALIVE: i32 = 0;
-pub(crate) const DEAD: i32 = -1;
+pub(crate) const ALIVE: Int = 0;
+pub(crate) const DEAD: Int = -1;
 
 // Column status.
-pub(crate) const DEAD_PRINCIPAL: i32 = -1;
-pub(crate) const DEAD_NON_PRINCIPAL: i32 = -2;
+pub(crate) const DEAD_PRINCIPAL: Int = -1;
+pub(crate) const DEAD_NON_PRINCIPAL: Int = -2;
 
 // Row and column status update and checking.
 pub(crate) fn row_is_dead(row: &[Row], r: usize) -> bool {
     row_is_marked_dead(row[r].shared2.mark())
 }
 
-pub(crate) fn row_is_marked_dead(row_mark: i32) -> bool {
+pub(crate) fn row_is_marked_dead(row_mark: Int) -> bool {
     row_mark < ALIVE
 }
 

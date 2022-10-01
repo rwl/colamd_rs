@@ -1,9 +1,11 @@
+use crate::internal::Int;
+
 #[derive(Clone, Default)]
 pub(crate) struct Row {
     // Index for A of first col in this row.
-    pub(crate) start: i32,
+    pub(crate) start: Int,
     // Number of principal columns in this row.
-    pub(crate) length: i32,
+    pub(crate) length: Int,
 
     pub(crate) shared1: RowShared1,
     pub(crate) shared2: RowShared2,
@@ -11,13 +13,13 @@ pub(crate) struct Row {
 
 #[derive(Clone)]
 pub(crate) enum RowShared1 {
-    Degree(i32),
-    P(i32),
+    Degree(Int),
+    P(Int),
 }
 
 impl RowShared1 {
     // Number of principal & non-principal columns in row.
-    pub(crate) fn degree(&self) -> i32 {
+    pub(crate) fn degree(&self) -> Int {
         match self {
             RowShared1::Degree(val) => *val,
             RowShared1::P(val) => panic!("called `RowShared1::degree()` on a `P` value: {}", val),
@@ -25,7 +27,7 @@ impl RowShared1 {
     }
 
     // Used as a row pointer in `init_rows_cols()`.
-    pub(crate) fn p(&self) -> i32 {
+    pub(crate) fn p(&self) -> Int {
         match self {
             RowShared1::P(val) => *val,
             RowShared1::Degree(val) => {
@@ -43,13 +45,13 @@ impl Default for RowShared1 {
 
 #[derive(Clone)]
 pub(crate) enum RowShared2 {
-    Mark(i32),
-    FirstColumn(i32),
+    Mark(Int),
+    FirstColumn(Int),
 }
 
 impl RowShared2 {
     // For computing set differences and marking dead rows.
-    pub(crate) fn mark(&self) -> i32 {
+    pub(crate) fn mark(&self) -> Int {
         match self {
             RowShared2::Mark(val) => *val,
             RowShared2::FirstColumn(val) => panic!(
@@ -60,7 +62,7 @@ impl RowShared2 {
     }
 
     // First column in row (used in garbage collection).
-    pub(crate) fn first_column(&self) -> i32 {
+    pub(crate) fn first_column(&self) -> Int {
         match self {
             RowShared2::FirstColumn(val) => *val,
             RowShared2::Mark(val) => {

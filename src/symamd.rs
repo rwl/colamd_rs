@@ -86,12 +86,12 @@ use crate::stats::*;
 ///       "allocate" routine passed into symamd).
 /// ```
 pub fn symamd(
-    n: i32,
-    a_i: &[i32],
-    p: &[i32],
-    perm: &mut [i32],
+    n: Int,
+    a_i: &[Int],
+    p: &[Int],
+    perm: &mut [Int],
     knobs: Option<[f64; KNOBS]>,
-    stats: &mut [i32; STATS],
+    stats: &mut [Int; STATS],
 ) -> bool {
     let mut cknobs = [0.0; KNOBS]; // Knobs for colamd.
 
@@ -266,7 +266,7 @@ pub fn symamd(
                     m_mat[count[j] as usize] = k;
                     count[j] += 1;
                     k += 1;
-                    mark[i] = j as i32;
+                    mark[i] = j as Int;
                 }
             }
         }

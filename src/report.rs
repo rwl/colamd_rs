@@ -1,16 +1,17 @@
+use crate::internal::Int;
 use crate::stats::*;
 
 /// Print `colamd` statistics to standard output.
-pub fn colamd_report(stats: &[i32; STATS]) {
+pub fn colamd_report(stats: &[Int; STATS]) {
     print_report("colamd", stats)
 }
 
 /// Print `symamd` statistics to standard output.
-pub fn symamd_report(stats: &[i32; STATS]) {
+pub fn symamd_report(stats: &[Int; STATS]) {
     print_report("symamd", stats)
 }
 
-fn print_report(method: &str, stats: &[i32; STATS]) {
+fn print_report(method: &str, stats: &[Int; STATS]) {
     #[cfg(feature = "nprint")]
     {
         return;
@@ -122,6 +123,6 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
 }
 
 // Matrixes are 0-based and indices are reported as such.
-fn index(i: i32) -> i32 {
+fn index(i: Int) -> Int {
     i
 }

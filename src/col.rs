@@ -1,11 +1,11 @@
-use crate::internal::EMPTY;
+use crate::internal::{Int, EMPTY};
 
 #[derive(Clone, Default)]
 pub(crate) struct Col {
     /// Index for A of first row in this column, or DEAD if column is dead.
-    pub(crate) start: i32,
+    pub(crate) start: Int,
     /// Number of rows in this column.
-    pub(crate) length: i32,
+    pub(crate) length: Int,
 
     pub(crate) shared1: ColShared1,
     pub(crate) shared2: ColShared2,
@@ -15,13 +15,13 @@ pub(crate) struct Col {
 
 #[derive(Clone)]
 pub(crate) enum ColShared1 {
-    Thickness(i32),
-    Parent(i32),
+    Thickness(Int),
+    Parent(Int),
 }
 
 impl ColShared1 {
     // Number of original columns represented by this col, if the column is alive.
-    pub(crate) fn thickness(&self) -> i32 {
+    pub(crate) fn thickness(&self) -> Int {
         match self {
             ColShared1::Thickness(val) => *val,
             ColShared1::Parent(val) => panic!(
@@ -32,7 +32,7 @@ impl ColShared1 {
     }
 
     // Parent in parent tree super-column structure, if the column is dead.
-    pub(crate) fn parent(&self) -> i32 {
+    pub(crate) fn parent(&self) -> Int {
         match self {
             ColShared1::Parent(val) => *val,
             ColShared1::Thickness(val) => {
@@ -53,13 +53,13 @@ impl Default for ColShared1 {
 
 #[derive(Clone)]
 pub(crate) enum ColShared2 {
-    Score(i32),
-    Order(i32),
+    Score(Int),
+    Order(Int),
 }
 
 impl ColShared2 {
     // The score used to maintain heap, if col is alive.
-    pub(crate) fn score(&self) -> i32 {
+    pub(crate) fn score(&self) -> Int {
         match self {
             ColShared2::Score(val) => *val,
             ColShared2::Order(val) => {
@@ -69,7 +69,7 @@ impl ColShared2 {
     }
 
     // Pivot ordering of this column, if col is dead.
-    pub(crate) fn order(&self) -> i32 {
+    pub(crate) fn order(&self) -> Int {
         match self {
             ColShared2::Order(val) => *val,
             ColShared2::Score(val) => {
@@ -87,14 +87,14 @@ impl Default for ColShared2 {
 
 #[derive(Clone)]
 pub(crate) enum ColShared3 {
-    HeadHash(i32),
-    Hash(i32),
-    Prev(i32),
+    HeadHash(Int),
+    Hash(Int),
+    Prev(Int),
 }
 
 impl ColShared3 {
     // Head of a hash bucket, if col is at the head of a degree list.
-    pub(crate) fn head_hash(&self) -> i32 {
+    pub(crate) fn head_hash(&self) -> Int {
         match self {
             ColShared3::HeadHash(val) => *val,
             ColShared3::Hash(val) => {
@@ -113,7 +113,7 @@ impl ColShared3 {
     }
 
     // Hash value, if col is not in a degree list.
-    pub(crate) fn hash(&self) -> i32 {
+    pub(crate) fn hash(&self) -> Int {
         match self {
             ColShared3::Hash(val) => *val,
             ColShared3::HeadHash(val) => {
@@ -127,7 +127,7 @@ impl ColShared3 {
 
     // Previous column in degree list, if col is in a
     // degree list (but not at the head of a degree list).
-    pub(crate) fn prev(&self) -> i32 {
+    pub(crate) fn prev(&self) -> Int {
         match self {
             ColShared3::Prev(val) => *val,
             ColShared3::HeadHash(val) => {
@@ -139,7 +139,7 @@ impl ColShared3 {
         }
     }
 
-    pub(crate) fn unwrap(&self) -> i32 {
+    pub(crate) fn unwrap(&self) -> Int {
         match self {
             ColShared3::Prev(val) => *val,
             ColShared3::HeadHash(val) => *val,
@@ -156,13 +156,13 @@ impl Default for ColShared3 {
 
 #[derive(Clone)]
 pub(crate) enum ColShared4 {
-    DegreeNext(i32),
-    HashNext(i32),
+    DegreeNext(Int),
+    HashNext(Int),
 }
 
 impl ColShared4 {
     // Next column, if col is in a degree list.
-    pub(crate) fn degree_next(&self) -> i32 {
+    pub(crate) fn degree_next(&self) -> Int {
         match self {
             ColShared4::DegreeNext(val) => *val,
             ColShared4::HashNext(val) => {
@@ -175,7 +175,7 @@ impl ColShared4 {
     }
 
     // Next column, if col is in a hash list.
-    pub(crate) fn hash_next(&self) -> i32 {
+    pub(crate) fn hash_next(&self) -> Int {
         match self {
             ColShared4::HashNext(val) => *val,
             ColShared4::DegreeNext(val) => {

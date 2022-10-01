@@ -122,13 +122,13 @@ use std::cmp;
 ///     -999  (unused; see symamd.go)
 /// ```
 pub fn colamd(
-    n_row: i32,
-    n_col: i32,
-    a_len: i32,
-    a_i: &mut [i32],
-    p: &mut [i32],
+    n_row: Int,
+    n_col: Int,
+    a_len: Int,
+    a_i: &mut [Int],
+    p: &mut [Int],
     knobs: Option<[f64; KNOBS]>,
-    stats: &mut [i32; STATS],
+    stats: &mut [Int; STATS],
 ) -> bool {
     for i in 0..STATS {
         stats[i] = 0;
@@ -189,7 +189,7 @@ pub fn colamd(
     // need = t_add (need, Col_size, ok)
     // need = t_add (need, Row_size, ok)
 
-    if !ok || need > a_len || need > i32::MAX {
+    if !ok || need > a_len || need > Int::MAX {
         // Not enough space in array A to perform the ordering.
         stats[STATUS] = ERROR_A_TOO_SMALL;
         stats[INFO1] = need;
@@ -215,9 +215,9 @@ pub fn colamd(
     }
 
     // Initialize scores, kill dense rows/columns.
-    let mut n_col2: i32 = 0; // number of non-dense, non-empty columns
-    let mut n_row2: i32 = 0; // number of non-dense, non-empty rows
-    let mut max_deg: i32 = 0; // maximum row degree
+    let mut n_col2: Int = 0; // number of non-dense, non-empty columns
+    let mut n_row2: Int = 0; // number of non-dense, non-empty rows
+    let mut max_deg: Int = 0; // maximum row degree
     init_scoring(
         n_row,
         n_col,
@@ -280,7 +280,7 @@ pub fn colamd(
 /// Returns the recommended value of `a_len` or 0 if any input argument is
 /// negative. The use of this routine is optional. Not needed for `symamd`,
 /// which dynamically allocates its own memory.
-pub fn recommended(nnz: i32, n_row: i32, n_col: i32) -> i32 {
+pub fn recommended(nnz: Int, n_row: Int, n_col: Int) -> Int {
     let mut ok = true;
     if nnz < 0 || n_row < 0 || n_col < 0 {
         return 0;
@@ -303,7 +303,7 @@ pub fn recommended(nnz: i32, n_row: i32, n_col: i32) -> i32 {
 }
 
 // Add two values of type int, and check for integer overflow.
-fn tadd(a: i32, b: i32, ok: &mut bool) -> i32 {
+fn tadd(a: Int, b: Int, ok: &mut bool) -> Int {
     if (*ok != false) && ((a + b) >= cmp::max(a, b)) {
         *ok = true
     } else {
@@ -317,7 +317,7 @@ fn tadd(a: i32, b: i32, ok: &mut bool) -> i32 {
 }
 
 // Compute a*k where k is a small integer, and check for integer overflow.
-fn tmult(a: i32, k: i32, ok: &mut bool) -> i32 {
+fn tmult(a: Int, k: Int, ok: &mut bool) -> Int {
     let mut s = 0;
     for _i in 0..k {
         s = tadd(s, a, ok);
@@ -327,12 +327,12 @@ fn tmult(a: i32, k: i32, ok: &mut bool) -> i32 {
 
 // Size of the Col and Row structures.
 
-fn tc(n_col: i32, ok: &mut bool) -> i32 {
+fn tc(n_col: Int, ok: &mut bool) -> Int {
     // return ((t_mult (t_add (n_col, 1, ok), sizeof (Colamd_Col), ok) / sizeof (int))) ;
     tadd(n_col, 1, ok)
 }
 
-fn tr(n_row: i32, ok: &mut bool) -> i32 {
+fn tr(n_row: Int, ok: &mut bool) -> Int {
     // return ((t_mult (t_add (n_row, 1, ok), sizeof (Colamd_Row), ok) / sizeof (int))) ;
     tadd(n_row, 1, ok)
 }

@@ -13,13 +13,13 @@ use crate::debug::*;
 // column form of the matrix. Returns false if the matrix is invalid,
 // true otherwise.
 pub(crate) fn init_rows_cols(
-    nrow: i32,
-    ncol: i32,
+    nrow: Int,
+    ncol: Int,
     rows: &mut [Row],
     cols: &mut [Col],
-    a_i: &mut [i32],
-    p: &mut [i32],
-    stats: &mut [i32; STATS],
+    a_i: &mut [Int],
+    p: &mut [Int],
+    stats: &mut [Int; STATS],
 ) -> bool {
     // Initialize columns, and check column pointers.
     for col in 0..ncol as usize {
@@ -29,7 +29,7 @@ pub(crate) fn init_rows_cols(
         if cols[col].length < 0 {
             // Column pointers must be non-decreasing.
             stats[STATUS] = ERROR_COL_LENGTH_NEGATIVE;
-            stats[INFO1] = col as i32;
+            stats[INFO1] = col as Int;
             stats[INFO2] = cols[col].length;
             debug0!("colamd: col {} length {} < 0", col, cols[col].length);
             return false;
@@ -211,16 +211,16 @@ pub(crate) fn init_rows_cols(
 // Kills dense or empty columns and rows, calculates an initial score for
 // each column, and places all columns in the degree lists.
 pub(crate) fn init_scoring(
-    nrow: i32,
-    ncol: i32,
+    nrow: Int,
+    ncol: Int,
     rows: &mut [Row],
     cols: &mut [Col],
-    a_i: &mut [i32],
-    head: &mut [i32],
+    a_i: &mut [Int],
+    head: &mut [Int],
     knobs: [f64; KNOBS],
-    pnrow2: &mut i32,
-    pncol2: &mut i32,
-    pmax_deg: &mut i32,
+    pnrow2: &mut Int,
+    pncol2: &mut Int,
+    pmax_deg: &mut Int,
 ) {
     // Extract knobs.
 
@@ -237,7 +237,7 @@ pub(crate) fn init_scoring(
         // Only remove completely dense columns.
         nrow - 1
     } else {
-        dense_degree(knobs[DENSE_COL], i32::min(nrow, ncol))
+        dense_degree(knobs[DENSE_COL], Int::min(nrow, ncol))
     };
 
     debug1!(
@@ -302,7 +302,7 @@ pub(crate) fn init_scoring(
             nrow2 -= 1;
         } else {
             // keep track of max degree of remaining rows
-            max_deg = i32::max(max_deg, deg);
+            max_deg = Int::max(max_deg, deg);
         }
     }
     debug1!("colamd: Dense and null rows killed: {}", nrow - nrow2);
@@ -334,15 +334,15 @@ pub(crate) fn init_scoring(
                 continue;
             }
             // Compact the column.
-            a_i[new_cp] = row as i32;
+            a_i[new_cp] = row as Int;
             new_cp += 1;
             // Add row's external degree.
             score += rows[row].shared1.degree() - 1;
             // Guard against integer overflow.
-            score = i32::min(score, ncol);
+            score = Int::min(score, ncol);
         }
         // Determine pruned column length.
-        let col_length = new_cp as i32 - cols[c].start; // Length of pruned column.
+        let col_length = new_cp as Int - cols[c].start; // Length of pruned column.
         if col_length == 0 {
             // A newly-made null column (all rows in this col are "dense"
             // and have already been killed).
@@ -414,12 +414,12 @@ pub(crate) fn init_scoring(
             // if there already was a column with the same score, set its
             // previous pointer to this new column.
             if next_col != EMPTY {
-                cols[next_col as usize].shared3 = ColShared3::Prev(c as i32);
+                cols[next_col as usize].shared3 = ColShared3::Prev(c as Int);
             }
-            head[score as usize] = c as i32;
+            head[score as usize] = c as Int;
 
             // See if this score is less than current min.
-            min_score = i32::min(min_score, score);
+            min_score = Int::min(min_score, score);
 
             #[cfg(feature = "debug")]
             {
@@ -456,24 +456,24 @@ pub(crate) fn init_scoring(
 // `pfree` is the index of first free slot (`2*nnz` on entry).
 // Returns the number of garbage collections.
 pub(crate) fn find_ordering(
-    nrow: i32,
-    ncol: i32,
-    a_len: i32,
+    nrow: Int,
+    ncol: Int,
+    a_len: Int,
     rows: &mut [Row],
     cols: &mut [Col],
-    a_i: &mut [i32],
-    head: &mut [i32],
-    n_col2: i32,
-    mut maxdeg: i32,
-    mut pfree: i32,
+    a_i: &mut [Int],
+    head: &mut [Int],
+    n_col2: Int,
+    mut maxdeg: Int,
+    mut pfree: Int,
     aggressive: bool,
-) -> i32 {
+) -> Int {
     #[cfg(feature = "debug")]
     let mut debug_step = 0; // Debug loop counter.
 
     // Initialization and clear mark.
 
-    let max_mark = i32::MAX - ncol; // Maximum value of tag_mark.
+    let max_mark = Int::MAX - ncol; // Maximum value of tag_mark.
     let mut tag_mark = clear_mark(0, max_mark, nrow, rows); // Marker value for mark array.
     let mut min_score = 0; // Smallest column score.
     let mut ngarbage = 0; // Number of garbage collections performed.
@@ -541,7 +541,7 @@ pub(crate) fn find_ordering(
 
         // Garbage_collection, if necessary.
 
-        let needed_memory = i32::min(pivot_col_score, ncol - k); // Free space needed for pivot row.
+        let needed_memory = Int::min(pivot_col_score, ncol - k); // Free space needed for pivot row.
         if pfree + needed_memory >= a_len {
             pfree = garbage_collection(nrow, ncol, rows, cols, a_i, pfree);
             ngarbage += 1;
@@ -592,7 +592,7 @@ pub(crate) fn find_ordering(
                         assert_debug!(pfree < a_len);
 
                         // Place column in pivot row.
-                        a_i[pfree as usize] = col as i32;
+                        a_i[pfree as usize] = col as Int;
                         pfree += 1;
                         pivot_row_degree += col_thickness;
                     }
@@ -602,7 +602,7 @@ pub(crate) fn find_ordering(
 
         // Clear tag on pivot column.
         cols[pivot_col].shared1 = ColShared1::Thickness(pivot_col_thickness);
-        maxdeg = i32::max(maxdeg, pivot_row_degree);
+        maxdeg = Int::max(maxdeg, pivot_row_degree);
 
         #[cfg(feature = "debug")]
         {
@@ -770,7 +770,7 @@ pub(crate) fn find_ordering(
             let mut cur_score = 0; // Score of current column.
             let mut cp = cols[col].start as usize;
             // Compact the column.
-            let mut new_cp = cp as i32; // Modified column pointer.
+            let mut new_cp = cp as Int; // Modified column pointer.
             let cp_end = cp + cols[col].length as usize;
 
             debug4!("Adding set diffs for Col: {}.", col);
@@ -791,14 +791,14 @@ pub(crate) fn find_ordering(
                 assert_debug!(row_mark >= tag_mark);
 
                 // Compact the column.
-                a_i[new_cp as usize] = row as i32;
+                a_i[new_cp as usize] = row as Int;
                 new_cp += 1;
                 // Compute hash function.
                 hash += row as usize;
                 // Add set difference.
                 cur_score += row_mark - tag_mark;
                 // Integer overflow...
-                cur_score = i32::min(cur_score, ncol);
+                cur_score = Int::min(cur_score, ncol);
             }
 
             // Recompute the column's length.
@@ -830,7 +830,7 @@ pub(crate) fn find_ordering(
                 hash %= (ncol as usize) + 1;
 
                 debug4!(" Hash = {}, n_col = {}.", hash, ncol);
-                assert_debug!((hash as i32) <= ncol);
+                assert_debug!((hash as Int) <= ncol);
 
                 let head_column = head[hash]; // Head of hash bucket.
                                               // First column in hash bucket.
@@ -838,18 +838,18 @@ pub(crate) fn find_ordering(
                     // Degree list "hash" is non-empty, use prev (shared3) of
                     // first column in degree list as head of hash bucket.
                     let first_col = cols[head_column as usize].shared3.prev(); //.head_hash();
-                    cols[head_column as usize].shared3 = ColShared3::HeadHash(col as i32);
+                    cols[head_column as usize].shared3 = ColShared3::HeadHash(col as Int);
                     first_col
                 } else {
                     // degree list "hash" is empty, use head as hash bucket.
                     let first_col = -(head_column + 2);
-                    head[hash] = -1 * (col + 2) as i32;
+                    head[hash] = -1 * (col + 2) as Int;
                     first_col
                 };
                 cols[col].shared4 = ColShared4::HashNext(first_col);
 
                 // Save hash function in Col [col].shared3.hash
-                cols[col].shared3 = ColShared3::Hash(hash as i32);
+                cols[col].shared3 = ColShared3::Hash(hash as Int);
                 assert_debug!(col_is_alive(cols, col));
             }
         }
@@ -894,7 +894,7 @@ pub(crate) fn find_ordering(
         // For each column in pivot row.
         let mut rp = pivot_row_start as usize;
         // Compact the pivot row.
-        let mut newrp = rp as i32; // Modified row pointer.
+        let mut newrp = rp as Int; // Modified row pointer.
         let rp_end = rp + pivot_row_length as usize;
         while rp < rp_end {
             let col = a_i[rp] as usize;
@@ -903,7 +903,7 @@ pub(crate) fn find_ordering(
             if col_is_dead(cols, col) {
                 continue;
             }
-            a_i[newrp as usize] = col as i32;
+            a_i[newrp as usize] = col as Int;
             newrp += 1;
             // Add new pivot row to column.
             a_i[(cols[col].start + cols[col].length) as usize] = pivot_row;
@@ -923,7 +923,7 @@ pub(crate) fn find_ordering(
             cur_score -= cols[col].shared1.thickness();
 
             // Make sure score is less or equal than the max score.
-            cur_score = i32::min(cur_score, max_score);
+            cur_score = Int::min(cur_score, max_score);
             assert_debug!(cur_score >= 0);
 
             // Store updated score.
@@ -941,12 +941,12 @@ pub(crate) fn find_ordering(
             cols[col].shared4 = ColShared4::DegreeNext(next_col);
             cols[col].shared3 = ColShared3::Prev(EMPTY);
             if next_col != EMPTY {
-                cols[next_col as usize].shared3 = ColShared3::Prev(col as i32);
+                cols[next_col as usize].shared3 = ColShared3::Prev(col as Int);
             }
-            head[cur_score as usize] = col as i32;
+            head[cur_score as usize] = col as Int;
 
             // See if this score is less than current min.
-            min_score = i32::min(min_score, cur_score);
+            min_score = Int::min(min_score, cur_score);
         }
 
         #[cfg(feature = "debug")]
@@ -988,7 +988,7 @@ pub(crate) fn find_ordering(
 // in the number of columns. Although not immediately obvious, the time
 // taken by this routine is `O(n_col)`, that is, linear in the number of
 // columns.
-pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
+pub(crate) fn order_children(ncol: Int, cols: &mut [Col], p: &mut [Int]) {
     // Order each non-principal column.
 
     for i in 0..ncol as usize {
@@ -1023,7 +1023,7 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
                 cols[c].shared2 = ColShared2::Order(order);
                 order += 1;
                 // Collapse tree.
-                cols[c].shared1 = ColShared1::Parent(parent as i32);
+                cols[c].shared1 = ColShared1::Parent(parent as Int);
 
                 // Get immediate parent of this column.
                 c = cols[c].shared1.parent() as usize;
@@ -1074,13 +1074,13 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
 // linear in the sum of the sizes (lengths) of each column whose score has
 // just been computed in the approximate degree computation.
 pub(crate) fn detect_super_cols(
-    _ncol: i32,
+    _ncol: Int,
     _rows: Option<&[Row]>,
     cols: &mut [Col],
-    a_i: &[i32],
-    head: &mut [i32],
-    row_start: i32,
-    row_length: i32,
+    a_i: &[Int],
+    head: &mut [Int],
+    row_start: Int,
+    row_length: Int,
 ) {
     // Consider each column in the row.
 
@@ -1212,13 +1212,13 @@ pub(crate) fn detect_super_cols(
 // time taken by this routine is linear in the size of the array A, which is
 // itself linear in the number of nonzeros in the input matrix.
 pub(crate) fn garbage_collection(
-    n_row: i32,
-    n_col: i32,
+    n_row: Int,
+    n_col: Int,
     rows: &mut [Row],
     cols: &mut [Col],
-    a_i: &mut [i32],
-    pfree: i32,
-) -> i32 {
+    a_i: &mut [Int],
+    pfree: Int,
+) -> Int {
     #[cfg(feature = "debug")]
     let mut debug_rows = {
         debug2!("Defrag..");
@@ -1244,7 +1244,7 @@ pub(crate) fn garbage_collection(
                 let r = a_i[psrc as usize] as usize;
                 psrc += 1;
                 if row_is_alive(rows, r) {
-                    a_i[pdest as usize] = r as i32;
+                    a_i[pdest as usize] = r as Int;
                 }
             }
             cols[c].length = pdest - cols[c].start;
@@ -1267,7 +1267,7 @@ pub(crate) fn garbage_collection(
             assert_debug!(row_is_alive(rows, r));
 
             // Flag the start of the row with the one's complement of row.
-            a_i[psrc as usize] = ones_complement(r as i32);
+            a_i[psrc as usize] = ones_complement(r as Int);
 
             #[cfg(feature = "debug")]
             {
@@ -1303,7 +1303,7 @@ pub(crate) fn garbage_collection(
                 let c = a_i[psrc as usize] as usize;
                 psrc += 1;
                 if col_is_alive(cols, c) {
-                    a_i[pdest as usize] = c as i32;
+                    a_i[pdest as usize] = c as Int;
                     pdest += 1;
                 }
             }
@@ -1325,7 +1325,7 @@ pub(crate) fn garbage_collection(
 }
 
 // Clears the Row[].shared2.mark array, and returns the new tag_mark.
-fn clear_mark(mut tag_mark: i32, max_mark: i32, nrow: i32, row: &mut [Row]) -> i32 {
+fn clear_mark(mut tag_mark: Int, max_mark: Int, nrow: Int, row: &mut [Row]) -> Int {
     if tag_mark <= 0 || tag_mark >= max_mark {
         for r in 0..nrow as usize {
             if row_is_alive(row, r) {

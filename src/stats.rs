@@ -1,3 +1,5 @@
+use crate::internal::Int;
+
 // Knob and statistics definitions. //
 
 /// Size of the `knobs[]` array. Only `knobs[0..1]` are currently used.
@@ -27,18 +29,18 @@ pub const INFO2: usize = 5;
 pub const INFO3: usize = 6;
 
 // Error codes returned in `stats[3]`.
-pub const OK: i32 = 0;
-pub const OK_BUT_JUMBLED: i32 = 1;
-// pub const ERROR_A_NOT_PRESENT: i32 = -1;
-// pub const ERROR_P_NOT_PRESENT: i32 = -2;
-pub const ERROR_NROW_NEGATIVE: i32 = -3;
-pub const ERROR_NCOL_NEGATIVE: i32 = -4;
-pub const ERROR_NNZ_NEGATIVE: i32 = -5;
-pub const ERROR_P0_NONZERO: i32 = -6;
-pub const ERROR_A_TOO_SMALL: i32 = -7;
-pub const ERROR_COL_LENGTH_NEGATIVE: i32 = -8;
-pub const ERROR_ROW_INDEX_OUT_OF_BOUNDS: i32 = -9;
-pub const ERROR_OUT_OF_MEMORY: i32 = -10;
+pub const OK: Int = 0;
+pub const OK_BUT_JUMBLED: Int = 1;
+// pub const ERROR_A_NOT_PRESENT: Int = -1;
+// pub const ERROR_P_NOT_PRESENT: Int = -2;
+pub const ERROR_NROW_NEGATIVE: Int = -3;
+pub const ERROR_NCOL_NEGATIVE: Int = -4;
+pub const ERROR_NNZ_NEGATIVE: Int = -5;
+pub const ERROR_P0_NONZERO: Int = -6;
+pub const ERROR_A_TOO_SMALL: Int = -7;
+pub const ERROR_COL_LENGTH_NEGATIVE: Int = -8;
+pub const ERROR_ROW_INDEX_OUT_OF_BOUNDS: Int = -9;
+pub const ERROR_OUT_OF_MEMORY: Int = -10;
 
 /// Returns the default values of the user-controllable parameters for
 /// `colamd` and `symamd`.

@@ -10,6 +10,7 @@ categories = ["algorithms", "mathematics", "science"]
 [dependencies]
 
 [features]
+i64 = []
 nprint = []
 debug = []
 debug1 = ["debug"]

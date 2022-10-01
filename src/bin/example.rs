@@ -1,12 +1,12 @@
-use colamd::{colamd, colamd_report, symamd, symamd_report, STATS};
+use colamd::{colamd, colamd_report, symamd, symamd_report, Int, STATS};
 
-const A_NNZ: i32 = 11;
-const A_NROW: i32 = 5;
-const A_NCOL: i32 = 4;
-const ALEN: i32 = 150;
+const A_NNZ: Int = 11;
+const A_NROW: Int = 5;
+const A_NCOL: Int = 4;
+const ALEN: Int = 150;
 
-const B_NNZ: i32 = 4;
-const B_N: i32 = 5;
+const B_NNZ: Int = 4;
+const B_N: Int = 5;
 
 /// COLAMD / SYMAMD example
 ///

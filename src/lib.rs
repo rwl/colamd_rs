@@ -45,6 +45,7 @@ mod stats;
 mod symamd;
 
 pub use crate::colamd::{colamd, recommended};
+pub use crate::internal::Int;
 pub use crate::report::*;
 pub use crate::stats::*;
 pub use crate::symamd::symamd;

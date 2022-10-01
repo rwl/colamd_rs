@@ -11,12 +11,12 @@ use crate::row::Row;
 // least one live column.
 #[cfg(feature = "debug")]
 pub(crate) fn debug_structures(
-    n_row: i32,
-    n_col: i32,
+    n_row: Int,
+    n_col: Int,
     rows: &[Row],
     cols: &[Col],
-    a_i: &[i32],
-    n_col2: i32,
+    a_i: &[Int],
+    n_col2: Int,
 ) {
     // Check A, Row, and Col.
 
@@ -67,14 +67,14 @@ pub(crate) fn debug_structures(
 // checks the row degrees.
 #[cfg(feature = "debug")]
 pub(crate) fn debug_deg_lists(
-    n_row: i32,
-    n_col: i32,
+    n_row: Int,
+    n_col: Int,
     rows: &[Row],
     cols: &[Col],
-    head: &[i32],
-    min_score: i32,
-    should: i32,
-    max_deg: i32,
+    head: &[Int],
+    min_score: Int,
+    should: Int,
+    max_deg: Int,
 ) {
     // Check the degree lists.
 
@@ -117,7 +117,7 @@ pub(crate) fn debug_deg_lists(
 // Ensures that the tag_mark is less that the maximum and also ensures that
 // each entry in the mark array is less than the tag mark.
 #[cfg(feature = "debug")]
-pub(crate) fn debug_mark(n_row: i32, rows: &[Row], tag_mark: i32, max_mark: i32) {
+pub(crate) fn debug_mark(n_row: Int, rows: &[Row], tag_mark: Int, max_mark: Int) {
     // Check the Row marks.
     assert_debug!(tag_mark > 0 && tag_mark <= max_mark);
     #[cfg(not(feature = "debug1"))]
@@ -131,7 +131,7 @@ pub(crate) fn debug_mark(n_row: i32, rows: &[Row], tag_mark: i32, max_mark: i32)
 
 // Prints out the contents of the columns and the rows.
 #[cfg(feature = "debug3")]
-pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a_i: &[i32]) {
+pub(crate) fn debug_matrix(n_row: Int, n_col: Int, rows: &[Row], cols: &[Col], a_i: &[Int]) {
     // Dump the rows and columns of the matrix.
     debug3!("DUMP MATRIX:");
     for r in 0..n_row as usize {
