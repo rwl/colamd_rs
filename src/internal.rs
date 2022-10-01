@@ -1,5 +1,5 @@
 use crate::col::Col;
-use crate::row::Row;
+use crate::row::{Row, RowShared2};
 
 pub(crate) fn dense_degree(alpha: f64, n: i32) -> i32 {
     f64::max(16.0, alpha * (n as f64).sqrt()) as i32
@@ -21,7 +21,7 @@ pub(crate) const DEAD_NON_PRINCIPAL: i32 = -2;
 
 // Row and column status update and checking.
 pub(crate) fn row_is_dead(row: &[Row], r: usize) -> bool {
-    row_is_marked_dead(row[r].mark())
+    row_is_marked_dead(row[r].shared2.mark())
 }
 
 pub(crate) fn row_is_marked_dead(row_mark: i32) -> bool {
@@ -29,7 +29,7 @@ pub(crate) fn row_is_marked_dead(row_mark: i32) -> bool {
 }
 
 pub(crate) fn row_is_alive(row: &[Row], r: usize) -> bool {
-    row[r].mark() >= ALIVE
+    row[r].shared2.mark() >= ALIVE
 }
 
 pub(crate) fn col_is_dead(col: &[Col], c: usize) -> bool {
@@ -45,7 +45,7 @@ pub(crate) fn col_is_dead_principal(col: &mut [Col], c: usize) -> bool {
 }
 
 pub(crate) fn kill_row(row: &mut [Row], r: usize) {
-    row[r].set_mark(DEAD)
+    row[r].shared2 = RowShared2::Mark(DEAD)
 }
 
 pub(crate) fn kill_principal_col(col: &mut [Col], c: usize) {

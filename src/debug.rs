@@ -23,11 +23,11 @@ pub(crate) fn debug_structures(
     for c in 0..n_col as usize {
         if col_is_alive(cols, c) {
             let len = cols[c].length as usize;
-            let score = cols[c].score();
+            let score = cols[c].shared2.score();
             debug4!("initial live col {:5} {:5} {:5}\n", c, len, score);
             assert_debug!(len > 0);
             assert_debug!(score >= 0);
-            assert_debug!(cols[c].thickness() == 1);
+            assert_debug!(cols[c].shared1.thickness() == 1);
             let mut cp = cols[c].start as usize;
             let cp_end = cp + len;
             while cp < cp_end {
@@ -36,7 +36,7 @@ pub(crate) fn debug_structures(
                 assert_debug!(row_is_alive(rows, r));
             }
         } else {
-            let i = cols[c].order();
+            let i = cols[c].shared2.order();
             assert_debug!(i >= n_col2 && i < n_col);
         }
     }
@@ -45,7 +45,7 @@ pub(crate) fn debug_structures(
         if row_is_alive(rows, r) {
             let mut i = 0;
             let len = rows[r].length as usize;
-            let deg = rows[r].degree();
+            let deg = rows[r].shared1.degree();
             assert_debug!(len > 0);
             assert_debug!(deg > 0);
             let mut rp = rows[r].start as usize;
@@ -92,9 +92,9 @@ pub(crate) fn debug_deg_lists(
         d.push_str(&format!("{}:", deg));
         while col != EMPTY {
             d.push_str(&format!(" {}", col));
-            have += cols[col as usize].thickness();
+            have += cols[col as usize].shared1.thickness();
             assert_debug!(col_is_alive(cols, col as usize));
-            col = cols[col as usize].degree_next();
+            col = cols[col as usize].shared4.degree_next();
         }
         debug4!("{}", d);
     }
@@ -109,7 +109,7 @@ pub(crate) fn debug_deg_lists(
     }
     for row in 0..n_row as usize {
         if row_is_alive(rows, row) {
-            assert_debug!(rows[row].degree() <= max_deg);
+            assert_debug!(rows[row].shared1.degree() <= max_deg);
         }
     }
 }
@@ -125,7 +125,7 @@ pub(crate) fn debug_mark(n_row: i32, rows: &[Row], tag_mark: i32, max_mark: i32)
         return;
     }
     for r in 0..n_row as usize {
-        assert_debug!(rows[r].mark() < tag_mark)
+        assert_debug!(rows[r].shared2.mark() < tag_mark)
     }
 }
 
@@ -143,7 +143,7 @@ pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a
             "start {} length {} degree {}",
             rows[r].start,
             rows[r].length,
-            rows[r].degree()
+            rows[r].shared1.degree()
         );
         let mut rp = rows[r].start as usize;
         let rp_end = rp + rows[r].length as usize;
@@ -172,8 +172,8 @@ pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a
             "start {} length {} shared1 {} shared2 {}",
             cols[c].start,
             cols[c].length,
-            cols[c].thickness(),
-            cols[c].score()
+            cols[c].shared1.thickness(),
+            cols[c].shared2.score()
         );
         let mut cp = cols[c].start as usize;
         let cp_end = cp + cols[c].length as usize;

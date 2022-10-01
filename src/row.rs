@@ -5,69 +5,76 @@ pub(crate) struct Row {
     // Number of principal columns in this row.
     pub(crate) length: i32,
 
-    shared1: i32,
-    shared2: i32,
+    pub(crate) shared1: RowShared1,
+    pub(crate) shared2: RowShared2,
 }
 
-// pub(crate) enum RowShared1 {
-//     Degree(i32),
-//     P(i32),
-// }
-//
-// impl RowShared1 {
-//     // Number of principal & non-principal columns in row.
-//     pub(crate) fn degree(self) -> i32 {
-//         match self {
-//             RowShared1::Degree(val) => val,
-//             RowShared1::P(val) => panic!("called `RowShared1::degree()` on a `P` value: {}", val),
-//         }
-//     }
-//
-//     // Used as a row pointer in `init_rows_cols()`.
-//     pub(crate) fn p(self) -> i32 {
-//         match self {
-//             RowShared1::P(val) => val,
-//             RowShared1::Degree(val) => {
-//                 panic!("called `RowShared1::p()` on a `Degree` value: {}", val)
-//             }
-//         }
-//     }
-// }
+#[derive(Clone)]
+pub(crate) enum RowShared1 {
+    Degree(i32),
+    P(i32),
+}
 
-impl Row {
+impl RowShared1 {
     // Number of principal & non-principal columns in row.
     pub(crate) fn degree(&self) -> i32 {
-        self.shared1
+        match self {
+            RowShared1::Degree(val) => *val,
+            RowShared1::P(val) => panic!("called `RowShared1::degree()` on a `P` value: {}", val),
+        }
     }
 
-    pub(crate) fn set_degree(&mut self, degree: i32) {
-        self.shared1 = degree
-    }
-
-    // Used as a row pointer in initRowsCols().
+    // Used as a row pointer in `init_rows_cols()`.
     pub(crate) fn p(&self) -> i32 {
-        self.shared1
+        match self {
+            RowShared1::P(val) => *val,
+            RowShared1::Degree(val) => {
+                panic!("called `RowShared1::p()` on a `Degree` value: {}", val)
+            }
+        }
     }
+}
 
-    pub(crate) fn set_p(&mut self, p: i32) {
-        self.shared1 = p
+impl Default for RowShared1 {
+    fn default() -> Self {
+        RowShared1::Degree(0)
     }
+}
 
+#[derive(Clone)]
+pub(crate) enum RowShared2 {
+    Mark(i32),
+    FirstColumn(i32),
+}
+
+impl RowShared2 {
     // For computing set differences and marking dead rows.
     pub(crate) fn mark(&self) -> i32 {
-        self.shared2
-    }
-
-    pub(crate) fn set_mark(&mut self, mark: i32) {
-        self.shared2 = mark
+        match self {
+            RowShared2::Mark(val) => *val,
+            RowShared2::FirstColumn(val) => panic!(
+                "called `RowShared2::mark()` on a `FirstColumn` value: {}",
+                val
+            ),
+        }
     }
 
     // First column in row (used in garbage collection).
     pub(crate) fn first_column(&self) -> i32 {
-        self.shared2
+        match self {
+            RowShared2::FirstColumn(val) => *val,
+            RowShared2::Mark(val) => {
+                panic!(
+                    "called `RowShared1::first_column()` on a `mark` value: {}",
+                    val
+                )
+            }
+        }
     }
+}
 
-    pub(crate) fn set_first_column(&mut self, first_column: i32) {
-        self.shared2 = first_column
+impl Default for RowShared2 {
+    fn default() -> Self {
+        RowShared2::Mark(-1)
     }
 }

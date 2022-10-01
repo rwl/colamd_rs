@@ -1,6 +1,6 @@
-use crate::col::Col;
+use crate::col::{Col, ColShared1, ColShared2, ColShared3, ColShared4};
 use crate::internal::*;
-use crate::row::Row;
+use crate::row::{Row, RowShared1, RowShared2};
 use crate::stats::*;
 
 #[cfg(feature = "debug")]
@@ -35,10 +35,10 @@ pub(crate) fn init_rows_cols(
             return false;
         }
 
-        cols[col].set_thickness(1);
-        cols[col].set_score(0);
-        cols[col].set_prev(EMPTY);
-        cols[col].set_degree_next(EMPTY);
+        cols[col].shared1 = ColShared1::Thickness(1);
+        cols[col].shared2 = ColShared2::Score(0);
+        cols[col].shared3 = ColShared3::Prev(EMPTY);
+        cols[col].shared4 = ColShared4::DegreeNext(EMPTY);
     }
     // p[0..n_col] no longer needed, used as "head" in subsequent routines.
 
@@ -49,7 +49,7 @@ pub(crate) fn init_rows_cols(
 
     for row in 0..nrow as usize {
         rows[row].length = 0;
-        rows[row].set_mark(-1);
+        rows[row].shared2 = RowShared2::Mark(-1);
     }
 
     for col in 0..ncol {
@@ -72,7 +72,7 @@ pub(crate) fn init_rows_cols(
                 return false;
             }
 
-            if row <= last_row || rows[row as usize].mark() == col {
+            if row <= last_row || rows[row as usize].shared2.mark() == col {
                 // Row index are unsorted or repeated (or both), thus col
                 // is jumbled. This is a notice, not an error condition.
                 stats[STATUS] = OK_BUT_JUMBLED;
@@ -82,7 +82,7 @@ pub(crate) fn init_rows_cols(
                 debug1!("colamd: row {} col {} unsorted/duplicate", row, col);
             }
 
-            if rows[row as usize].mark() != col {
+            if rows[row as usize].shared2.mark() != col {
                 rows[row as usize].length += 1;
             } else {
                 // This is a repeated entry in the column, it will be removed.
@@ -90,7 +90,7 @@ pub(crate) fn init_rows_cols(
             }
 
             // Mark the row as having been seen in this column.
-            rows[row as usize].set_mark(col);
+            rows[row as usize].shared2 = RowShared2::Mark(col);
 
             last_row = row;
         }
@@ -101,12 +101,12 @@ pub(crate) fn init_rows_cols(
     // Row form of the matrix starts directly after the column
     // form of matrix in A.
     rows[0].start = p[ncol as usize];
-    rows[0].set_p(rows[0].start);
-    rows[0].set_mark(-1);
+    rows[0].shared1 = RowShared1::P(rows[0].start);
+    rows[0].shared2 = RowShared2::Mark(-1);
     for row in 1..nrow as usize {
         rows[row].start = rows[row - 1].start + rows[row - 1].length;
-        rows[row].set_p(rows[row].start);
-        rows[row].set_mark(-1);
+        rows[row].shared1 = RowShared1::P(rows[row].start);
+        rows[row].shared2 = RowShared2::Mark(-1);
     }
 
     // Create row form.
@@ -121,10 +121,10 @@ pub(crate) fn init_rows_cols(
                 let row = a_i[cp as usize] as usize;
                 cp += 1;
 
-                if rows[row].mark() != col {
-                    a_i[rows[row].p() as usize] = col;
-                    rows[row].set_p(rows[row].p() + 1);
-                    rows[row].set_mark(col);
+                if rows[row].shared2.mark() != col {
+                    a_i[rows[row].shared1.p() as usize] = col;
+                    rows[row].shared1 = RowShared1::P(rows[row].shared1.p() + 1);
+                    rows[row].shared2 = RowShared2::Mark(col);
                 }
             }
         }
@@ -134,8 +134,9 @@ pub(crate) fn init_rows_cols(
             let mut cp = p[col as usize] as usize;
             let cp_end = p[(col + 1) as usize] as usize;
             while cp < cp_end {
-                a_i[rows[a_i[cp] as usize].p() as usize] = col;
-                rows[a_i[cp] as usize].set_p(rows[a_i[cp] as usize].p() + 1);
+                a_i[rows[a_i[cp] as usize].shared1.p() as usize] = col;
+                rows[a_i[cp] as usize].shared1 =
+                    RowShared1::P(rows[a_i[cp] as usize].shared1.p() + 1);
                 cp += 1;
             }
         }
@@ -144,8 +145,8 @@ pub(crate) fn init_rows_cols(
     // Clear the row marks and set row degrees.
 
     for row in 0..nrow as usize {
-        rows[row].set_mark(0);
-        rows[row].set_degree(rows[row].length);
+        rows[row].shared2 = RowShared2::Mark(0);
+        rows[row].shared1 = RowShared1::Degree(rows[row].length);
     }
 
     // See if we need to re-create columns.
@@ -258,7 +259,7 @@ pub(crate) fn init_scoring(
         if deg == 0 {
             // This is a empty column, kill and order it last.
             ncol2 -= 1;
-            cols[c].set_order(ncol2);
+            cols[c].shared2 = ColShared2::Order(ncol2);
             kill_principal_col(cols, c);
         }
     }
@@ -277,12 +278,13 @@ pub(crate) fn init_scoring(
         if deg > dense_col_count {
             // This is a dense column, kill and order it last.
             ncol2 -= 1;
-            cols[c].set_order(ncol2);
+            cols[c].shared2 = ColShared2::Order(ncol2);
             // Decrement the row degrees.
             let mut cp = cols[c].start as usize; // Column pointer.
             let cp_end = cp + cols[c].length as usize; // Pointer to the end of the column.
             while cp < cp_end {
-                rows[a_i[cp] as usize].set_degree(rows[a_i[cp] as usize].degree() - 1);
+                rows[a_i[cp] as usize].shared1 =
+                    RowShared1::Degree(rows[a_i[cp] as usize].shared1.degree() - 1);
                 cp += 1;
             }
             kill_principal_col(cols, c);
@@ -292,7 +294,7 @@ pub(crate) fn init_scoring(
 
     // Kill dense and empty rows.
     for r in 0..nrow as usize {
-        let deg = rows[r].degree(); // Degree of row.
+        let deg = rows[r].shared1.degree(); // Degree of row.
         assert_debug!(deg >= 0 && deg <= ncol);
         if deg > dense_row_count || deg == 0 {
             // Kill a dense or empty row.
@@ -335,7 +337,7 @@ pub(crate) fn init_scoring(
             a_i[new_cp] = row as i32;
             new_cp += 1;
             // Add row's external degree.
-            score += rows[row].degree() - 1;
+            score += rows[row].shared1.degree() - 1;
             // Guard against integer overflow.
             score = i32::min(score, ncol);
         }
@@ -346,14 +348,14 @@ pub(crate) fn init_scoring(
             // and have already been killed).
             debug2!("Newly null killed: {}", c);
             ncol2 -= 1;
-            cols[c].set_order(ncol2);
+            cols[c].shared2 = ColShared2::Order(ncol2);
             kill_principal_col(cols, c);
         } else {
             // Set column length and set score.
             assert_debug!(score >= 0);
             assert_debug!(score <= ncol);
             cols[c].length = col_length;
-            cols[c].set_score(score);
+            cols[c].shared2 = ColShared2::Score(score);
         }
     }
     debug1!(
@@ -389,14 +391,14 @@ pub(crate) fn init_scoring(
             debug4!(
                 "place {} score {} minscore {} ncol {}",
                 c,
-                cols[c].score(),
+                cols[c].shared2.score(),
                 min_score,
                 ncol
             );
 
             // Add columns score to DList.
 
-            let score = cols[c].score();
+            let score = cols[c].shared2.score();
 
             assert_debug!(min_score >= 0);
             assert_debug!(min_score <= ncol);
@@ -406,13 +408,13 @@ pub(crate) fn init_scoring(
 
             // Now add this column to dList at proper score location.
             let next_col = head[score as usize]; // Used to add to degree list.
-            cols[c].set_prev(EMPTY);
-            cols[c].set_degree_next(next_col);
+            cols[c].shared3 = ColShared3::Prev(EMPTY);
+            cols[c].shared4 = ColShared4::DegreeNext(next_col);
 
             // if there already was a column with the same score, set its
             // previous pointer to this new column.
             if next_col != EMPTY {
-                cols[next_col as usize].set_prev(c as i32);
+                cols[next_col as usize].shared3 = ColShared3::Prev(c as i32);
             }
             head[score as usize] = c as i32;
 
@@ -515,23 +517,23 @@ pub(crate) fn find_ordering(
         let pivot_col = head[min_score as usize] as usize; // Current pivot column.
         assert_debug!(/*pivot_col >= 0 &&*/ pivot_col <= ncol as usize);
 
-        let next_col = cols[pivot_col].degree_next();
+        let next_col = cols[pivot_col].shared4.degree_next();
         head[min_score as usize] = next_col;
         if next_col != EMPTY {
-            cols[next_col as usize].set_prev(EMPTY);
+            cols[next_col as usize].shared3 = ColShared3::Prev(EMPTY);
         }
 
         assert_debug!(col_is_alive(cols, pivot_col));
         debug3!("Pivot col: {}\n", pivot_col);
 
         // Remember score for defrag check.
-        let pivot_col_score = cols[pivot_col].score(); // Score of pivot column.
+        let pivot_col_score = cols[pivot_col].shared2.score(); // Score of pivot column.
 
         // The pivot column is the kth column in the pivot order.
-        cols[pivot_col].set_order(k);
+        cols[pivot_col].shared2 = ColShared2::Order(k);
 
         // Increment order count by column thickness.
-        let pivot_col_thickness = cols[pivot_col].thickness(); // Number of columns represented by pivot col.
+        let pivot_col_thickness = cols[pivot_col].shared1.thickness(); // Number of columns represented by pivot col.
         k += pivot_col_thickness;
 
         assert_debug!(pivot_col_thickness > 0);
@@ -563,7 +565,7 @@ pub(crate) fn find_ordering(
 
         // Tag pivot column as having been visited so it isn't included
         // in merged pivot row.
-        cols[pivot_col].set_thickness(-pivot_col_thickness);
+        cols[pivot_col].shared1 = ColShared1::Thickness(-pivot_col_thickness);
 
         // Pivot row is the union of all rows in the pivot column pattern.
         let mut cp = cols[pivot_col].start as usize;
@@ -583,10 +585,10 @@ pub(crate) fn find_ordering(
                     let col = a_i[rp] as usize;
                     rp += 1;
                     // Add the column, if alive and untagged.
-                    let col_thickness = cols[col].thickness(); // "thickness" (no. of columns in a supercol)
+                    let col_thickness = cols[col].shared1.thickness(); // "thickness" (no. of columns in a supercol)
                     if col_thickness > 0 && col_is_alive(cols, col) {
                         // Tag column in pivot row.
-                        cols[col].set_thickness(-col_thickness);
+                        cols[col].shared1 = ColShared1::Thickness(-col_thickness);
                         assert_debug!(pfree < a_len);
 
                         // Place column in pivot row.
@@ -599,7 +601,7 @@ pub(crate) fn find_ordering(
         }
 
         // Clear tag on pivot column.
-        cols[pivot_col].set_thickness(pivot_col_thickness);
+        cols[pivot_col].shared1 = ColShared1::Thickness(pivot_col_thickness);
         maxdeg = i32::max(maxdeg, pivot_row_degree);
 
         #[cfg(feature = "debug")]
@@ -676,16 +678,16 @@ pub(crate) fn find_ordering(
             debug3!("Col: {}", col);
 
             // Clear tags used to construct pivot row pattern.
-            let col_thickness = -cols[col].thickness();
+            let col_thickness = -cols[col].shared1.thickness();
             assert_debug!(col_thickness > 0);
 
-            cols[col].set_thickness(col_thickness);
+            cols[col].shared1 = ColShared1::Thickness(col_thickness);
 
             // Remove column from degree list.
 
-            let cur_score = cols[col].score(); // Score of current column.
-            let prev_col = cols[col].prev();
-            let next_col = cols[col].degree_next();
+            let cur_score = cols[col].shared2.score(); // Score of current column.
+            let prev_col = cols[col].shared3.unwrap(); //.prev();
+            let next_col = cols[col].shared4.degree_next();
 
             assert_debug!(cur_score >= 0);
             assert_debug!(cur_score <= ncol);
@@ -694,10 +696,10 @@ pub(crate) fn find_ordering(
             if prev_col == EMPTY {
                 head[cur_score as usize] = next_col;
             } else {
-                cols[prev_col as usize].set_degree_next(next_col);
+                cols[prev_col as usize].shared4 = ColShared4::DegreeNext(next_col);
             }
             if next_col != EMPTY {
-                cols[next_col as usize].set_prev(prev_col);
+                cols[next_col as usize].shared3 = ColShared3::Prev(prev_col);
             }
 
             // Scan the column.
@@ -708,7 +710,7 @@ pub(crate) fn find_ordering(
                 // Get a row.
                 let row = a_i[cp] as usize;
                 cp += 1;
-                let row_mark = rows[row].mark();
+                let row_mark = rows[row].shared2.mark();
                 // Skip if dead.
                 if row_is_marked_dead(row_mark) {
                     continue;
@@ -719,9 +721,9 @@ pub(crate) fn find_ordering(
                 let mut set_difference = row_mark - tag_mark;
                 // Check if the row has been seen yet.
                 if set_difference < 0 {
-                    assert_debug!(rows[row].degree() <= maxdeg);
+                    assert_debug!(rows[row].shared1.degree() <= maxdeg);
 
-                    set_difference = rows[row].degree();
+                    set_difference = rows[row].shared1.degree();
                 }
                 // Subtract column thickness from this row's set difference.
                 set_difference -= col_thickness;
@@ -734,7 +736,7 @@ pub(crate) fn find_ordering(
                     kill_row(rows, row);
                 } else {
                     // Save the new mark.
-                    rows[row].set_mark(set_difference + tag_mark);
+                    rows[row].shared2 = RowShared2::Mark(set_difference + tag_mark);
                 }
             }
         }
@@ -779,7 +781,7 @@ pub(crate) fn find_ordering(
                 cp += 1;
                 assert_debug!(/*row >= 0 &&*/ row < nrow as usize);
 
-                let row_mark = rows[row].mark();
+                let row_mark = rows[row].shared2.mark();
                 // Skip if dead.
                 if row_is_marked_dead(row_mark) {
                     debug4!(" Row {}, dead", row);
@@ -809,20 +811,20 @@ pub(crate) fn find_ordering(
 
                 // Nothing left but the pivot row in this column.
                 kill_principal_col(cols, col);
-                pivot_row_degree -= cols[col].thickness();
+                pivot_row_degree -= cols[col].shared1.thickness();
                 assert_debug!(pivot_row_degree >= 0);
 
                 // Order it.
-                cols[col].set_order(k);
+                cols[col].shared2 = ColShared2::Order(k);
                 // Increment order count by column thickness.
-                k += cols[col].thickness();
+                k += cols[col].shared1.thickness();
             } else {
                 // Prepare for supercolumn detection.
 
                 debug4!("Preparing supercol detection for Col: {}.", col);
 
                 // Save score so far.
-                cols[col].set_score(cur_score);
+                cols[col].shared2 = ColShared2::Score(cur_score);
 
                 // Add column to hash table, for supercolumn detection.
                 hash %= (ncol as usize) + 1;
@@ -835,8 +837,8 @@ pub(crate) fn find_ordering(
                 let first_col = if head_column > EMPTY {
                     // Degree list "hash" is non-empty, use prev (shared3) of
                     // first column in degree list as head of hash bucket.
-                    let first_col = cols[head_column as usize].headhash();
-                    cols[head_column as usize].set_headhash(col as i32);
+                    let first_col = cols[head_column as usize].shared3.prev(); //.head_hash();
+                    cols[head_column as usize].shared3 = ColShared3::HeadHash(col as i32);
                     first_col
                 } else {
                     // degree list "hash" is empty, use head as hash bucket.
@@ -844,10 +846,10 @@ pub(crate) fn find_ordering(
                     head[hash] = -1 * (col + 2) as i32;
                     first_col
                 };
-                cols[col].set_hash_next(first_col);
+                cols[col].shared4 = ColShared4::HashNext(first_col);
 
                 // Save hash function in Col [col].shared3.hash
-                cols[col].set_hash(hash as i32);
+                cols[col].shared3 = ColShared3::Hash(hash as i32);
                 assert_debug!(col_is_alive(cols, col));
             }
         }
@@ -910,22 +912,22 @@ pub(crate) fn find_ordering(
             // Retrieve score so far and add on pivot row's degree.
             // (we wait until here for this in case the pivot
             // row's degree was reduced due to mass elimination).
-            let mut cur_score = cols[col].score() + pivot_row_degree;
+            let mut cur_score = cols[col].shared2.score() + pivot_row_degree;
 
             // Calculate the max possible score as the number of
             // external columns minus the 'k' value minus the
             // columns thickness.
-            let max_score = ncol - k - cols[col].thickness();
+            let max_score = ncol - k - cols[col].shared1.thickness();
 
             // Make the score the external degree of the union-of-rows.
-            cur_score -= cols[col].thickness();
+            cur_score -= cols[col].shared1.thickness();
 
             // Make sure score is less or equal than the max score.
             cur_score = i32::min(cur_score, max_score);
             assert_debug!(cur_score >= 0);
 
             // Store updated score.
-            cols[col].set_score(cur_score);
+            cols[col].shared2 = ColShared2::Score(cur_score);
 
             // Place column back in degree list.
 
@@ -936,10 +938,10 @@ pub(crate) fn find_ordering(
             assert_debug!(head[cur_score as usize] >= EMPTY);
 
             let next_col = head[cur_score as usize];
-            cols[col].set_degree_next(next_col);
-            cols[col].set_prev(EMPTY);
+            cols[col].shared4 = ColShared4::DegreeNext(next_col);
+            cols[col].shared3 = ColShared3::Prev(EMPTY);
             if next_col != EMPTY {
-                cols[next_col as usize].set_prev(col as i32);
+                cols[next_col as usize].shared3 = ColShared3::Prev(col as i32);
             }
             head[cur_score as usize] = col as i32;
 
@@ -959,8 +961,8 @@ pub(crate) fn find_ordering(
             rows[pivot_row as usize].length = newrp - pivot_row_start;
             assert_debug!(rows[pivot_row as usize].length > 0);
 
-            rows[pivot_row as usize].set_degree(pivot_row_degree);
-            rows[pivot_row as usize].set_mark(0);
+            rows[pivot_row as usize].shared1 = RowShared1::Degree(pivot_row_degree);
+            rows[pivot_row as usize].shared2 = RowShared2::Mark(0);
             // Pivot row is no longer dead.
 
             debug1!(
@@ -993,7 +995,7 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
         // Find an un-ordered non-principal column.
         assert_debug!(col_is_dead(cols, i));
 
-        if !col_is_dead_principal(cols, i) && cols[i].order() == EMPTY {
+        if !col_is_dead_principal(cols, i) && cols[i].shared2.order() == EMPTY {
             let mut parent = i; // Index of column's parent.
 
             // Once found, find its principal parent.
@@ -1001,7 +1003,7 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
             //     parent = Col [parent].shared1.parent ;
             // } while (!COL_IS_DEAD_PRINCIPAL (parent)) ;
             loop {
-                parent = cols[parent].parent() as usize;
+                parent = cols[parent].shared1.parent() as usize;
                 if col_is_dead_principal(cols, parent) {
                     break; // TODO: check
                 }
@@ -1011,38 +1013,38 @@ pub(crate) fn order_children(ncol: i32, cols: &mut [Col], p: &mut [i32]) {
             // to this parent. Collapse tree at the same time.
             let mut c = i;
             // Get order of parent.
-            let mut order = cols[parent].order();
+            let mut order = cols[parent].shared2.order();
 
             // for ok := true; ok; ok = (cols[c].order() == empty) {
             loop {
-                assert_debug!(cols[c].order() == EMPTY);
+                assert_debug!(cols[c].shared2.order() == EMPTY);
 
                 // Order this column.
-                cols[c].set_order(order);
+                cols[c].shared2 = ColShared2::Order(order);
                 order += 1;
                 // Collapse tree.
-                cols[c].set_parent(parent as i32);
+                cols[c].shared1 = ColShared1::Parent(parent as i32);
 
                 // Get immediate parent of this column.
-                c = cols[c].parent() as usize;
+                c = cols[c].shared1.parent() as usize;
 
                 // Continue until we hit an ordered column. There are
                 // guaranteed not to be anymore unordered columns
                 // above an ordered column.
 
-                if cols[c].order() != EMPTY {
+                if cols[c].shared2.order() != EMPTY {
                     break; // TODO: check
                 }
             }
 
             // Re-order the super_col parent to largest order for this group.
-            cols[parent].set_order(order);
+            cols[parent].shared2 = ColShared2::Order(order);
         }
     }
 
     // Generate the permutation.
     for c in 0..ncol {
-        p[cols[c as usize].order() as usize] = c;
+        p[cols[c as usize].shared2.order() as usize] = c;
     }
 }
 
@@ -1092,7 +1094,7 @@ pub(crate) fn detect_super_cols(
         }
 
         // Get hash number for this column.
-        let hash = cols[col].hash();
+        let hash = cols[col].shared3.hash();
         assert_debug!(hash <= _ncol);
 
         // Get the first column in this hash bucket.
@@ -1101,7 +1103,7 @@ pub(crate) fn detect_super_cols(
 
         // First column in hash bucket.
         let first_col = if head_column > EMPTY {
-            cols[head_column as usize].headhash()
+            cols[head_column as usize].shared3.head_hash()
         } else {
             -(head_column + 2)
         };
@@ -1112,7 +1114,7 @@ pub(crate) fn detect_super_cols(
         let mut super_c = first_col; // Column index of the column to absorb into.
         while super_c != EMPTY {
             assert_debug!(col_is_alive(cols, super_c as usize));
-            assert_debug!(cols[super_c as usize].hash() == hash);
+            assert_debug!(cols[super_c as usize].shared3.hash() == hash);
 
             let length = cols[super_c as usize].length; // Length of column super_c.
 
@@ -1122,19 +1124,19 @@ pub(crate) fn detect_super_cols(
             // Compare super_c with all columns after it.
 
             // for c = cols[super_c].hashNext(); c != empty; c = cols[c].hashNext() {  TODO: check
-            let mut c = cols[super_c as usize].hash_next();
+            let mut c = cols[super_c as usize].shared4.hash_next();
             while c != EMPTY {
                 assert_debug!(c != super_c);
                 assert_debug!(col_is_alive(cols, c as usize));
-                assert_debug!(cols[c as usize].hash() == hash);
+                assert_debug!(cols[c as usize].shared3.hash() == hash);
 
                 // Not identical if lengths or scores are different.
                 if cols[c as usize].length != length
-                    || cols[c as usize].score() != cols[super_c as usize].score()
+                    || cols[c as usize].shared2.score() != cols[super_c as usize].shared2.score()
                 {
                     prev_c = c;
 
-                    c = cols[c as usize].hash_next();
+                    c = cols[c as usize].shared4.hash_next();
                     continue;
                 }
 
@@ -1166,33 +1168,37 @@ pub(crate) fn detect_super_cols(
                 if i != length {
                     prev_c = c;
 
-                    c = cols[c as usize].hash_next();
+                    c = cols[c as usize].shared4.hash_next();
                     continue;
                 }
 
                 // Got it! Two columns are identical.
 
-                assert_debug!(cols[c as usize].score() == cols[super_c as usize].score());
-
-                cols[super_c as usize].set_thickness(
-                    cols[super_c as usize].thickness() + cols[c as usize].thickness(),
+                assert_debug!(
+                    cols[c as usize].shared2.score() == cols[super_c as usize].shared2.score()
                 );
-                cols[c as usize].set_parent(super_c);
+
+                cols[super_c as usize].shared1 = ColShared1::Thickness(
+                    cols[super_c as usize].shared1.thickness()
+                        + cols[c as usize].shared1.thickness(),
+                );
+                cols[c as usize].shared1 = ColShared1::Parent(super_c);
                 kill_non_principal_col(cols, c as usize);
                 // Order c later, in orderChildren().
-                cols[c as usize].set_order(EMPTY);
+                cols[c as usize].shared2 = ColShared2::Order(EMPTY);
                 // Remove c from hash bucket.
-                cols[prev_c as usize].set_hash_next(cols[c as usize].hash_next());
+                cols[prev_c as usize].shared4 =
+                    ColShared4::HashNext(cols[c as usize].shared4.hash_next());
 
-                c = cols[c as usize].hash_next();
+                c = cols[c as usize].shared4.hash_next();
             }
-            super_c = cols[super_c as usize].hash_next();
+            super_c = cols[super_c as usize].shared4.hash_next();
         }
 
         // Empty this hash bucket.
         if head_column > EMPTY {
             // Corresponding degree list "hash" is not empty.
-            cols[head_column as usize].set_headhash(EMPTY);
+            cols[head_column as usize].shared3 = ColShared3::HeadHash(EMPTY);
         } else {
             // Corresponding degree list "hash" is empty.
             head[hash as usize] = EMPTY;
@@ -1257,7 +1263,7 @@ pub(crate) fn garbage_collection(
         } else {
             // Save first column index in Row [r].shared2.first_column.
             let psrc = rows[r].start;
-            rows[r].set_first_column(a_i[psrc as usize]);
+            rows[r].shared2 = RowShared2::FirstColumn(a_i[psrc as usize]);
             assert_debug!(row_is_alive(rows, r));
 
             // Flag the start of the row with the one's complement of row.
@@ -1284,7 +1290,7 @@ pub(crate) fn garbage_collection(
             assert_debug!(/*r >= 0 &&*/ r < n_row as usize);
 
             // Restore first column index.
-            a_i[psrc as usize] = rows[r].first_column();
+            a_i[psrc as usize] = rows[r].shared2.first_column();
             assert_debug!(row_is_alive(rows, r));
             assert_debug!(rows[r].length > 0);
 
@@ -1323,7 +1329,7 @@ fn clear_mark(mut tag_mark: i32, max_mark: i32, nrow: i32, row: &mut [Row]) -> i
     if tag_mark <= 0 || tag_mark >= max_mark {
         for r in 0..nrow as usize {
             if row_is_alive(row, r) {
-                row[r].set_mark(0)
+                row[r].shared2 = RowShared2::Mark(0)
             }
         }
         tag_mark = 1;

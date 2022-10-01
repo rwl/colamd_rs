@@ -1,3 +1,5 @@
+use crate::internal::EMPTY;
+
 #[derive(Clone, Default)]
 pub(crate) struct Col {
     /// Index for A of first row in this column, or DEAD if column is dead.
@@ -5,124 +7,189 @@ pub(crate) struct Col {
     /// Number of rows in this column.
     pub(crate) length: i32,
 
-    shared1: i32,
-    shared2: i32,
-    shared3: i32,
-    shared4: i32,
+    pub(crate) shared1: ColShared1,
+    pub(crate) shared2: ColShared2,
+    pub(crate) shared3: ColShared3,
+    pub(crate) shared4: ColShared4,
 }
 
-// pub(crate) enum ColShared1 {
-//     Thickness(i32),
-//     Parent(i32),
-// }
-//
-// impl ColShared1 {
-//     // Number of original columns represented by this col, if the column is alive.
-//     pub(crate) fn thickness(self) -> i32 {
-//         match self {
-//             ColShared1::Thickness(val) => val,
-//             ColShared1::Parent(val) => panic!(
-//                 "called `ColShared1::thickness()` on a `Parent` value: {}",
-//                 val
-//             ),
-//         }
-//     }
-//
-//     // Parent in parent tree super-column structure, if the column is dead.
-//     pub(crate) fn parent(self) -> i32 {
-//         match self {
-//             ColShared1::Parent(val) => val,
-//             ColShared1::Thickness(val) => {
-//                 panic!(
-//                     "called `ColShared1::parent()` on a `Thickness` value: {}",
-//                     val
-//                 )
-//             }
-//         }
-//     }
-// }
+#[derive(Clone)]
+pub(crate) enum ColShared1 {
+    Thickness(i32),
+    Parent(i32),
+}
 
-impl Col {
-    // Number of original columns represented by this
-    // col, if the column is alive.
+impl ColShared1 {
+    // Number of original columns represented by this col, if the column is alive.
     pub(crate) fn thickness(&self) -> i32 {
-        self.shared1
-    }
-
-    pub(crate) fn set_thickness(&mut self, thickness: i32) {
-        self.shared1 = thickness
+        match self {
+            ColShared1::Thickness(val) => *val,
+            ColShared1::Parent(val) => panic!(
+                "called `ColShared1::thickness()` on a `Parent` value: {}",
+                val
+            ),
+        }
     }
 
     // Parent in parent tree super-column structure, if the column is dead.
     pub(crate) fn parent(&self) -> i32 {
-        self.shared1
+        match self {
+            ColShared1::Parent(val) => *val,
+            ColShared1::Thickness(val) => {
+                panic!(
+                    "called `ColShared1::parent()` on a `Thickness` value: {}",
+                    val
+                )
+            }
+        }
     }
+}
 
-    pub(crate) fn set_parent(&mut self, parent: i32) {
-        self.shared1 = parent
+impl Default for ColShared1 {
+    fn default() -> Self {
+        ColShared1::Thickness(1)
     }
+}
 
+#[derive(Clone)]
+pub(crate) enum ColShared2 {
+    Score(i32),
+    Order(i32),
+}
+
+impl ColShared2 {
     // The score used to maintain heap, if col is alive.
     pub(crate) fn score(&self) -> i32 {
-        self.shared2
-    }
-
-    pub(crate) fn set_score(&mut self, score: i32) {
-        self.shared2 = score
+        match self {
+            ColShared2::Score(val) => *val,
+            ColShared2::Order(val) => {
+                panic!("called `ColShared2::score()` on a `Order` value: {}", val)
+            }
+        }
     }
 
     // Pivot ordering of this column, if col is dead.
     pub(crate) fn order(&self) -> i32 {
-        self.shared2
+        match self {
+            ColShared2::Order(val) => *val,
+            ColShared2::Score(val) => {
+                panic!("called `ColShared2::order()` on a `Score` value: {}", val)
+            }
+        }
     }
+}
 
-    pub(crate) fn set_order(&mut self, order: i32) {
-        self.shared2 = order
+impl Default for ColShared2 {
+    fn default() -> Self {
+        ColShared2::Score(0)
     }
+}
 
+#[derive(Clone)]
+pub(crate) enum ColShared3 {
+    HeadHash(i32),
+    Hash(i32),
+    Prev(i32),
+}
+
+impl ColShared3 {
     // Head of a hash bucket, if col is at the head of a degree list.
-    pub(crate) fn headhash(&self) -> i32 {
-        self.shared3
-    }
-
-    pub(crate) fn set_headhash(&mut self, headhash: i32) {
-        self.shared3 = headhash
+    pub(crate) fn head_hash(&self) -> i32 {
+        match self {
+            ColShared3::HeadHash(val) => *val,
+            ColShared3::Hash(val) => {
+                panic!(
+                    "called `ColShared3::head_hash()` on a `Hash` value: {}",
+                    val
+                )
+            }
+            ColShared3::Prev(val) => {
+                panic!(
+                    "called `ColShared3::head_hash()` on a `Prev` value: {}",
+                    val
+                )
+            }
+        }
     }
 
     // Hash value, if col is not in a degree list.
     pub(crate) fn hash(&self) -> i32 {
-        self.shared3
-    }
-
-    pub(crate) fn set_hash(&mut self, hash: i32) {
-        self.shared3 = hash
+        match self {
+            ColShared3::Hash(val) => *val,
+            ColShared3::HeadHash(val) => {
+                panic!("called `ColShared3::hash()` on a `HeadHash` value: {}", val)
+            }
+            ColShared3::Prev(val) => {
+                panic!("called `ColShared3::hash()` on a `Prev` value: {}", val)
+            }
+        }
     }
 
     // Previous column in degree list, if col is in a
     // degree list (but not at the head of a degree list).
     pub(crate) fn prev(&self) -> i32 {
-        self.shared3
+        match self {
+            ColShared3::Prev(val) => *val,
+            ColShared3::HeadHash(val) => {
+                panic!("called `ColShared3::prev()` on a `HeadHash` value: {}", val)
+            }
+            ColShared3::Hash(val) => {
+                panic!("called `ColShared3::prev()` on a `Hash` value: {}", val)
+            }
+        }
     }
 
-    pub(crate) fn set_prev(&mut self, prev: i32) {
-        self.shared3 = prev
+    pub(crate) fn unwrap(&self) -> i32 {
+        match self {
+            ColShared3::Prev(val) => *val,
+            ColShared3::HeadHash(val) => *val,
+            ColShared3::Hash(val) => *val,
+        }
     }
+}
 
+impl Default for ColShared3 {
+    fn default() -> Self {
+        ColShared3::Prev(EMPTY)
+    }
+}
+
+#[derive(Clone)]
+pub(crate) enum ColShared4 {
+    DegreeNext(i32),
+    HashNext(i32),
+}
+
+impl ColShared4 {
     // Next column, if col is in a degree list.
     pub(crate) fn degree_next(&self) -> i32 {
-        self.shared4
-    }
-
-    pub(crate) fn set_degree_next(&mut self, degree_next: i32) {
-        self.shared4 = degree_next
+        match self {
+            ColShared4::DegreeNext(val) => *val,
+            ColShared4::HashNext(val) => {
+                panic!(
+                    "called `ColShared4::degree_next()` on a `HashNext` value: {}",
+                    val
+                )
+            }
+        }
     }
 
     // Next column, if col is in a hash list.
     pub(crate) fn hash_next(&self) -> i32 {
-        self.shared4
+        match self {
+            ColShared4::HashNext(val) => *val,
+            ColShared4::DegreeNext(val) => {
+                panic!(
+                    "called `ColShared4::hash_next()` on a `DegreeNext` value: {}",
+                    val
+                )
+            }
+        }
     }
+}
 
-    pub(crate) fn set_hash_next(&mut self, hash_next: i32) {
-        self.shared4 = hash_next
+impl Default for ColShared4 {
+    fn default() -> Self {
+        ColShared4::DegreeNext(EMPTY)
     }
 }
