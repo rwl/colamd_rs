@@ -1,4 +1,4 @@
-use colamd::{colamd, STATS};
+use colamd::{colamd, colamd_report, symamd, symamd_report, STATS};
 
 const A_NNZ: i32 = 11;
 const A_NROW: i32 = 5;
@@ -30,14 +30,17 @@ const B_N: i32 = 5;
 ///     0 0 0 x x
 ///
 /// (where x denotes a nonzero value).
-fn main() {
-    let AA = vec![
+fn main() -> Result<(), String> {
+    let mut a_ind = vec![0; ALEN as usize];
+    let aa_ind = vec![
         0, 1, 4, // Row indices of nonzeros in column 0.
         2, 4, // Row indices of nonzeros in column 1.
         0, 1, 2, 3, // Row indices of nonzeros in column 2.
         1, 3, // Row indices of nonzeros in column 3.
     ];
-    let mut A = AA.clone();
+    for (i, a) in aa_ind.into_iter().enumerate() {
+        a_ind[i] = a;
+    }
 
     let mut p = vec![
         0,     // Column 0 is in A[0..2].
@@ -52,7 +55,7 @@ fn main() {
     // Note: Only strictly lower triangular part
     // is included, since symamd ignores the
     // diagonal and upper triangular part of B.
-    let B = vec![
+    let b_ind = vec![
         1, // Row indices of nonzeros in column 0.
         2, 3, // Row indices of nonzeros in column 1.
         // Row indices of nonzeros in column 2 (none).
@@ -71,7 +74,7 @@ fn main() {
 
     // Other variable definitions.
 
-    let perm = vec![0; (B_N + 1) as usize]; // Note the size is N+1.
+    let mut perm = vec![0; (B_N + 1) as usize]; // Note the size is N+1.
     let mut stats = [0; STATS]; // For colamd and symamd output statistics.
 
     // Dump the input matrix A.
@@ -81,12 +84,87 @@ fn main() {
         let length = p[col + 1] - p[col];
         println!("Column {}, with {} entries:", col, length);
         for pp in p[col]..p[col + 1] {
-            let row = A[pp as usize];
+            let row = a_ind[pp as usize];
             println!("    row {}", row)
         }
     }
 
     // Order the matrix. Note that this destroys A and overwrites p.
 
-    let ok = colamd(A_NROW, A_NCOL, ALEN, &mut A, &mut p, None, &mut stats);
+    let ok = colamd(A_NROW, A_NCOL, ALEN, &mut a_ind, &mut p, None, &mut stats);
+
+    colamd_report(&stats);
+
+    if !ok {
+        return Err("colamd error!\n".to_string());
+    }
+
+    // Write the column ordering.
+
+    println!("colamd column ordering:");
+    println!("1st column: {}", p[0]);
+    println!("2nd column: {}", p[1]);
+    println!("3rd column: {}", p[2]);
+    println!("4th column: {}", p[3]);
+
+    if p[0] != 1 {
+        return Err(format!("expected {} actual {}", 1, p[0]).to_string());
+    }
+    if p[1] != 0 {
+        return Err(format!("expected {} actual {}", 0, p[1]).to_string());
+    }
+    if p[2] != 2 {
+        return Err(format!("expected {} actual {}", 2, p[2]).to_string());
+    }
+    if p[3] != 3 {
+        return Err(format!("expected {} actual {}", 3, p[3]).to_string());
+    }
+
+    // Dump the strictly lower triangular part of symmetric input matrix B.
+
+    println!("\n\nsymamd {}-by-{} input matrix:", B_N, B_N);
+    println!("Entries in strictly lower triangular part:");
+    for col in 0..B_N as usize {
+        let length = q[col + 1] - q[col];
+        println!("Column {}, with {} entries:", col, length);
+        for pp in q[col]..q[col + 1] {
+            let row = b_ind[pp as usize];
+            println!("    row {}", row);
+        }
+    }
+
+    // Order the matrix B.  Note that this does not modify B or q.
+
+    let ok = symamd(B_N, &b_ind, &q, &mut perm, None, &mut stats);
+    symamd_report(&stats);
+
+    if !ok {
+        return Err("symamd error!\n".to_string());
+    }
+
+    // Write the symmetric ordering.
+
+    println!("symamd column ordering:");
+    println!("1st row/column: {}", perm[0]);
+    println!("2nd row/column: {}", perm[1]);
+    println!("3rd row/column: {}", perm[2]);
+    println!("4th row/column: {}", perm[3]);
+    println!("5th row/column: {}", perm[4]);
+
+    if perm[0] != 0 {
+        return Err(format!("expected {} actual {}", 0, perm[0]).to_string());
+    }
+    if perm[1] != 2 {
+        return Err(format!("expected {} actual {}", 2, perm[1]).to_string());
+    }
+    if perm[2] != 1 {
+        return Err(format!("expected {} actual {}", 1, perm[2]).to_string());
+    }
+    if perm[3] != 3 {
+        return Err(format!("expected {} actual {}", 3, perm[3]).to_string());
+    }
+    if perm[4] != 4 {
+        return Err(format!("expected {} actual {}", 4, perm[4]).to_string());
+    }
+    Ok(())
 }

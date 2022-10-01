@@ -317,5 +317,5 @@ pub fn symamd(
 
     debug0!("symamd: done.");
 
-    false
+    true
 }
