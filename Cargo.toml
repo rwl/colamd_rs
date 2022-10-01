@@ -2,6 +2,10 @@
 name = "colamd"
 version = "0.1.0"
 edition = "2021"
+description = "Column approximate minimum degree ordering algorithm"
+repository = "https://github.com/rwl/colamd_rs/"
+license = "BSD-3-Clause"
+categories = ["algorithms", "mathematics", "science"]
 
 [dependencies]
 
