@@ -1,10 +1,11 @@
-use crate::codes::*;
 use crate::stats::*;
 
+/// Print `colamd` statistics to standard output.
 pub fn colamd_report(stats: &[i32; STATS]) {
     print_report("colamd", stats)
 }
 
+/// Print `symamd` statistics to standard output.
 pub fn symamd_report(stats: &[i32; STATS]) {
     print_report("symamd", stats)
 }
@@ -15,11 +16,6 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
         return;
     }
     let s = format!("\n{}: ", method);
-
-    // if stats == nil {
-    // 	println!(s + "No statistics available.")
-    // 	return
-    // }
 
     let i1 = stats[INFO1].clone();
     let i2 = stats[INFO2].clone();
@@ -48,7 +44,7 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
                 method,
                 index(i1)
             );
-            println!("");
+            println!();
             println!(
                 "{}: number of dense or empty rows ignored:           {}",
                 method, stats[DENSE_ROW]
@@ -97,7 +93,10 @@ fn print_report(method: &str, stats: &[i32; STATS]) {
         }
         ERROR_A_TOO_SMALL => {
             println!("Array A too small.");
-            println!("        Need Alen >= {}, but given only Alen = {}.", i1, i2);
+            println!(
+                "        Need a_len >= {}, but given only a_len = {}.",
+                i1, i2
+            );
         }
         ERROR_COL_LENGTH_NEGATIVE => {
             println!(

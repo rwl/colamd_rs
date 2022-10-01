@@ -1,3 +1,6 @@
+use crate::col::Col;
+use crate::row::Row;
+
 pub(crate) fn dense_degree(alpha: f64, n: i32) -> i32 {
     f64::max(16.0, alpha * (n as f64).sqrt()) as i32
 }
@@ -140,6 +143,4 @@ macro_rules! debug4 {
     ($( $args:expr ),*) => {};
 }
 
-use crate::col::Col;
-use crate::row::Row;
 pub(crate) use {assert_debug, debug0, debug1, debug2, debug3, debug4};

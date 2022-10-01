@@ -1,18 +1,18 @@
-use crate::codes::*;
 use crate::colamd;
 use crate::colamd::recommended;
 use crate::internal::*;
 use crate::stats::*;
 
-/// Computes an ordering `P` of a symmetric sparse
-/// matrix `A` such that the Cholesky factorization `PAP' = LL'` remains
-/// sparse. It is based on a column ordering of a matrix `M` constructed
-/// so that the nonzero pattern of `M'M` is the same as `A`. The matrix `A`
-/// is assumed to be symmetric; only the strictly lower triangular part
-/// is accessed.
+/// Computes an ordering `P` of a symmetric sparse matrix `A` such that
+/// the Cholesky factorization `PAP' = LL'` remains sparse.
+///
+/// It is based on a column ordering of a matrix `M` constructed so that
+/// the nonzero pattern of `M'M` is the same as `A`. The matrix `A` is
+/// assumed to be symmetric; only the strictly lower triangular part is
+/// accessed.
 ///
 /// The row indices of the entries in column `c` of the matrix are
-/// held in `A[(p[c])...(p[c+1]-1)]`. The row indices in a
+/// held in `a_i[(p[c])...(p[c+1]-1)]`. The row indices in a
 /// given column `c` need not be in ascending order, and duplicate
 /// row indices may be present. However, `symamd` will run faster
 /// if the columns are in sorted order with no duplicate entries.
@@ -21,17 +21,15 @@ use crate::stats::*;
 /// `n-1`, and columns are in the range 0 to `n-1`. `symamd`
 /// returns `false` if any row index is out of range.
 ///
-/// The contents of `A` are not modified.
-/// `A` is an integer array of size `n+1`. On input, it holds the
+/// `p` is an integer array of size `n+1`. On input, it holds the
 /// "pointers" for the column form of the matrix `A`. Column `c` of
-/// the matrix `A` is held in `A[(p[c])...(p[c+1]-1)]`. The first
+/// the matrix `A` is held in `a_i[(p[c])...(p[c+1]-1)]`. The first
 /// entry, `p[0]`, must be zero, and `p[c] <= p[c+1]` must hold
 /// for all `c` in the range 0 to `n-1`. The value `p[n]` is
 /// thus the total number of entries in the pattern of the matrix `A`.
 /// `symamd` returns `false` if these conditions are not met.
 ///
-/// The contents of `p` are not modified.
-/// On output, if `symamd` returns `true`, the array perm holds the
+/// On output, if `symamd` returns `true`, the array `perm` holds the
 /// permutation `P`, where `perm[0]` is the first index in the new
 /// ordering, and `perm[n-1]` is the last. That is, `perm[k] = j`
 /// means that row and column `j` of `A` is the `k`th column in `PAP'`,
@@ -40,15 +38,16 @@ use crate::stats::*;
 /// `PAP'`). The array is used as a workspace during the ordering,
 /// which is why it must be of length `n+1`, not just `n`.
 ///
-///     `stats[0]`: number of dense or empty row and columns ignored
-///        (and ordered last in the output permutation
-///        perm). Note that a row/column can become
-///        "empty" if it contains only "dense" and/or
-///        "empty" columns/rows.
-///     `stats[1]`: (same as `stats[0]`)
-///     `stats[2]`: number of garbage collections performed.
-///     `stats[3]`: status code < 0 is an error code.
-///          > 1 is a warning or notice.
+/// ```txt
+/// stats[0]: number of dense or empty row and columns ignored
+///    (and ordered last in the output permutation
+///    perm). Note that a row/column can become
+///    "empty" if it contains only "dense" and/or
+///    "empty" columns/rows.
+/// stats[1]: (same as `stats[0]`)
+/// stats[2]: number of garbage collections performed.
+/// stats[3]: status code < 0 is an error code.
+///      > 1 is a warning or notice.
 ///
 ///     0: OK. Each column of the input matrix contained
 ///       row indices in increasing order, with no
@@ -85,30 +84,16 @@ use crate::stats::*;
 ///     -10: Out of memory (unable to allocate temporary
 ///       workspace for M or count arrays using the
 ///       "allocate" routine passed into symamd).
+/// ```
 pub fn symamd(
     n: i32,
-    a_ind: &[i32],
+    a_i: &[i32],
     p: &[i32],
     perm: &mut [i32],
     knobs: Option<[f64; KNOBS]>,
     stats: &mut [i32; STATS],
 ) -> bool {
-    // let count: Vec<i32>; // Length of each column of M, and col pointer.
-    // let mark: Vec<i32>; // Mark array for finding duplicate entries.
-    // let M: Vec<i32>; // Row indices of matrix M.
-    // let Mlen: i32; // Length of M.
-    // let nrow: i32; // Number of rows in M.
-    // let nnz: i32; // Number of entries in A.
-    // let i: i32; // Row index of A.
-    // let j: i32; // Column index of A.
-    // let k: i32; // Row index of M.
-    // let mnz: i32; // Number of nonzeros in M.
-    // let pp: i32; // Index into a column of A.
-    // let lastRow: i32; // Last row seen in the current column.
-    // let length: i32; // Number of nonzeros in a column.
-
     let mut cknobs = [0.0; KNOBS]; // Knobs for colamd.
-                                   // let defaultKnobs = [0.0; KNOBS]; // Default knobs for colamd.
 
     for i in 0..STATS {
         stats[i] = 0;
@@ -178,7 +163,7 @@ pub fn symamd(
         }
 
         for pp in p[j as usize]..p[(j + 1) as usize] {
-            let i = a_ind[pp as usize];
+            let i = a_i[pp as usize];
             if i < 0 || i >= n {
                 // Row index i, in column j, is out of bounds.
                 stats[STATUS] = ERROR_ROW_INDEX_OUT_OF_BOUNDS;
@@ -247,7 +232,7 @@ pub fn symamd(
             assert_debug!(p[j + 1] - p[j] >= 0);
 
             for pp in p[j]..p[j + 1] {
-                let i = a_ind[pp as usize] as usize;
+                let i = a_i[pp as usize] as usize;
                 assert_debug!(/*i >= 0 &&*/ i < n as usize);
 
                 if i > j {
@@ -271,7 +256,7 @@ pub fn symamd(
             assert_debug!(p[j + 1] - p[j] >= 0);
 
             for pp in p[j]..p[j + 1] {
-                let i = a_ind[pp as usize] as usize;
+                let i = a_i[pp as usize] as usize;
                 assert_debug!(/*i >= 0 &&*/ i < n as usize);
 
                 if i > j && mark[i] as usize != j {
@@ -287,9 +272,6 @@ pub fn symamd(
         }
     }
 
-    // Count and mark no longer needed.
-    // count = nil
-    // mark = nil
     assert_debug!(k == nrow);
 
     // Adjust the knobs for M.

@@ -15,24 +15,9 @@ pub(crate) fn debug_structures(
     n_col: i32,
     rows: &[Row],
     cols: &[Col],
-    a_ind: &[i32],
+    a_i: &[i32],
     n_col2: i32,
 ) {
-    // Local variables.
-
-    // let (i, c, cp, cp_end, len, score, r, rp, rp_end, deg): (
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    //     i32,
-    // );
-
     // Check A, Row, and Col.
 
     for c in 0..n_col as usize {
@@ -46,7 +31,7 @@ pub(crate) fn debug_structures(
             let mut cp = cols[c].start as usize;
             let cp_end = cp + len;
             while cp < cp_end {
-                let r = a_ind[cp] as usize;
+                let r = a_i[cp] as usize;
                 cp += 1;
                 assert_debug!(row_is_alive(rows, r));
             }
@@ -66,7 +51,7 @@ pub(crate) fn debug_structures(
             let mut rp = rows[r].start as usize;
             let rp_end = rp + len;
             while rp < rp_end {
-                let c = a_ind[rp] as usize;
+                let c = a_i[rp] as usize;
                 rp += 1;
                 if col_is_alive(cols, c) {
                     i += 1;
@@ -91,10 +76,6 @@ pub(crate) fn debug_deg_lists(
     should: i32,
     max_deg: i32,
 ) {
-    // Local variables.
-
-    // let (deg, col, have, row): (i32, i32, i32, i32);
-
     // Check the degree lists.
 
     #[cfg(not(feature = "debug1"))]
@@ -150,11 +131,8 @@ pub(crate) fn debug_mark(n_row: i32, rows: &[Row], tag_mark: i32, max_mark: i32)
 
 // Prints out the contents of the columns and the rows.
 #[cfg(feature = "debug3")]
-pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a_ind: &[i32]) {
+pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a_i: &[i32]) {
     // Dump the rows and columns of the matrix.
-    // if debugLevel < 3 {
-    //     return;
-    // }
     debug3!("DUMP MATRIX:");
     for r in 0..n_row as usize {
         debug3!("Row {} alive? {}", r, row_is_alive(rows, r));
@@ -170,7 +148,7 @@ pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a
         let mut rp = rows[r].start as usize;
         let rp_end = rp + rows[r].length as usize;
         while rp < rp_end {
-            let c = a_ind[rp] as usize;
+            let c = a_i[rp] as usize;
             rp += 1;
             debug4!("	{} col {}\n", col_is_alive(cols, c), c);
             //if colIsAlive(cols, c) {
@@ -200,7 +178,7 @@ pub(crate) fn debug_matrix(n_row: i32, n_col: i32, rows: &[Row], cols: &[Col], a
         let mut cp = cols[c].start as usize;
         let cp_end = cp + cols[c].length as usize;
         while cp < cp_end {
-            let r = a_ind[cp] as usize;
+            let r = a_i[cp] as usize;
             cp += 1;
             if row_is_alive(rows, r) {
                 debug4!("  1 row {}", r);

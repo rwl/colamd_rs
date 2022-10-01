@@ -31,15 +31,15 @@ const B_N: i32 = 5;
 ///
 /// (where x denotes a nonzero value).
 fn main() -> Result<(), String> {
-    let mut a_ind = vec![0; ALEN as usize];
-    let aa_ind = vec![
+    let mut a_i = vec![0; ALEN as usize];
+    let aa_i = vec![
         0, 1, 4, // Row indices of nonzeros in column 0.
         2, 4, // Row indices of nonzeros in column 1.
         0, 1, 2, 3, // Row indices of nonzeros in column 2.
         1, 3, // Row indices of nonzeros in column 3.
     ];
-    for (i, a) in aa_ind.into_iter().enumerate() {
-        a_ind[i] = a;
+    for (i, a) in aa_i.into_iter().enumerate() {
+        a_i[i] = a;
     }
 
     let mut p = vec![
@@ -55,7 +55,7 @@ fn main() -> Result<(), String> {
     // Note: Only strictly lower triangular part
     // is included, since symamd ignores the
     // diagonal and upper triangular part of B.
-    let b_ind = vec![
+    let b_i = vec![
         1, // Row indices of nonzeros in column 0.
         2, 3, // Row indices of nonzeros in column 1.
         // Row indices of nonzeros in column 2 (none).
@@ -84,14 +84,14 @@ fn main() -> Result<(), String> {
         let length = p[col + 1] - p[col];
         println!("Column {}, with {} entries:", col, length);
         for pp in p[col]..p[col + 1] {
-            let row = a_ind[pp as usize];
+            let row = a_i[pp as usize];
             println!("    row {}", row)
         }
     }
 
     // Order the matrix. Note that this destroys A and overwrites p.
 
-    let ok = colamd(A_NROW, A_NCOL, ALEN, &mut a_ind, &mut p, None, &mut stats);
+    let ok = colamd(A_NROW, A_NCOL, ALEN, &mut a_i, &mut p, None, &mut stats);
 
     colamd_report(&stats);
 
@@ -128,14 +128,14 @@ fn main() -> Result<(), String> {
         let length = q[col + 1] - q[col];
         println!("Column {}, with {} entries:", col, length);
         for pp in q[col]..q[col + 1] {
-            let row = b_ind[pp as usize];
+            let row = b_i[pp as usize];
             println!("    row {}", row);
         }
     }
 
     // Order the matrix B.  Note that this does not modify B or q.
 
-    let ok = symamd(B_N, &b_ind, &q, &mut perm, None, &mut stats);
+    let ok = symamd(B_N, &b_i, &q, &mut perm, None, &mut stats);
     symamd_report(&stats);
 
     if !ok {
